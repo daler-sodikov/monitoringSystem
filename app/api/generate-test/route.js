@@ -71,6 +71,7 @@ export async function POST(request) {
     Эзоҳ: Танҳо JSON фиристед, бе матни иловагӣ. JSON бояд дуруст бошад. Саволҳо ва ҷавобҳо бояд бо забони ${language} бошанд.`;
 
     const response = await chat(prompt);
+    console.log(response)
 
     const jsonStart = response.indexOf("{");
     const jsonEnd = response.lastIndexOf("}") + 1;

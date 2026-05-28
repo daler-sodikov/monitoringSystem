@@ -225,15 +225,18 @@ export default function TeacherDashboard() {
                         </Badge>
                       </div>
                       <div className="flex items-center justify-between mt-3">
-                        <span className="text-sm text-muted-foreground">
-                          {room.studentCount || 0} донишҷӯён
-                        </span>
+                        <div className="flex items-center gap-3">
+
+                          <span className="text-sm font-bold tracking-widest bg-primary/10 text-primary px-2 py-0.5 rounded">
+                            {room.code}
+                          </span>
+                        </div>
                         <div className="flex gap-2">
                           <Button
                             size="sm"
                             variant="outline"
                             onClick={() =>
-                              router.push(`/teacher/rooms/${room._id}`)
+                              router.push(`/teacher/rooms/${room.code}`)
                             }
                           >
                             Дидан

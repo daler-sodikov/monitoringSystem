@@ -371,6 +371,19 @@ async function handleGetRooms() {
   return Response.json({ rooms });
 }
 
+async function generateUniqueRoomCode(db) {
+  let code;
+  let attempts = 0;
+  do {
+    // Generate random 3-digit number (100-999)
+    code = String(Math.floor(100 + Math.random() * 900));
+    const existing = await db.collection('rooms').findOne({ code });
+    if (!existing) break;
+    attempts++;
+  } while (attempts < 50);
+  return code;
+}
+
 async function handleCreateRoom(request) {
   const user = await getCurrentUser();
   if (!user || user.role !== 'TEACHER') {
@@ -392,7 +405,11 @@ async function handleCreateRoom(request) {
       return Response.json({ error: 'Test not found or forbidden' }, { status: 403 });
     }
 
-    const result = await db.collection('rooms').insertOne({
+    // Generate unique 3-digit room code
+    const code = await generateUniqueRoomCode(db);
+
+    await db.collection('rooms').insertOne({
+      code,
       testId,
       name,
       status: 'OPEN',
@@ -401,7 +418,7 @@ async function handleCreateRoom(request) {
       closedAt: null
     });
 
-    return Response.json({ success: true, roomId: result.insertedId });
+    return Response.json({ success: true, roomId: code });
   } catch (error) {
     console.error('Create room error:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });
@@ -411,7 +428,7 @@ async function handleCreateRoom(request) {
 async function handleGetRoom(request, roomId) {
   try {
     const db = await getDb();
-    const room = await db.collection('rooms').findOne({ _id: new ObjectId(roomId) });
+    const room = await db.collection('rooms').findOne({ code: roomId });
 
     if (!room) {
       return Response.json({ error: 'Room not found' }, { status: 404 });
@@ -435,7 +452,7 @@ async function handleJoinRoom(request, roomId) {
 
   try {
     const db = await getDb();
-    const room = await db.collection('rooms').findOne({ _id: new ObjectId(roomId) });
+    const room = await db.collection('rooms').findOne({ code: roomId });
 
     if (!room) {
       return Response.json({ error: 'Room not found' }, { status: 404 });
@@ -575,7 +592,7 @@ async function handleSubmitAnswers(request, roomId) {
     const db = await getDb();
 
     // Get room
-    const room = await db.collection('rooms').findOne({ _id: new ObjectId(roomId) });
+    const room = await db.collection('rooms').findOne({ code: roomId });
     if (!room) {
       return Response.json({ error: 'Room not found' }, { status: 404 });
     }
@@ -631,7 +648,7 @@ async function handleCloseRoom(request, roomId) {
 
   try {
     const db = await getDb();
-    const room = await db.collection('rooms').findOne({ _id: new ObjectId(roomId) });
+    const room = await db.collection('rooms').findOne({ code: roomId });
 
     if (!room) {
       return Response.json({ error: 'Room not found' }, { status: 404 });
@@ -647,7 +664,7 @@ async function handleCloseRoom(request, roomId) {
 
     // Close the room
     await db.collection('rooms').updateOne(
-      { _id: new ObjectId(roomId) },
+      { code: roomId },
       { $set: { status: 'CLOSED', closedAt: new Date() } }
     );
 
@@ -751,7 +768,7 @@ async function handleGetRoomResults(request, roomId) {
 
   try {
     const db = await getDb();
-    const room = await db.collection('rooms').findOne({ _id: new ObjectId(roomId) });
+    const room = await db.collection('rooms').findOne({ code: roomId });
 
     if (!room) {
       return Response.json({ error: 'Room not found' }, { status: 404 });
@@ -809,7 +826,7 @@ async function handleGetStudentResult(request, roomId, studentId) {
     const db = await getDb();
 
     // Check if room exists
-    const room = await db.collection('rooms').findOne({ _id: new ObjectId(roomId) });
+    const room = await db.collection('rooms').findOne({ code: roomId });
     if (!room) {
       return Response.json({ error: 'Room not found' }, { status: 404 });
     }
@@ -964,7 +981,7 @@ async function handleManualGrade(request, roomId, studentId) {
     const { questionId, isCorrect } = await request.json();
 
     const db = await getDb();
-    const room = await db.collection('rooms').findOne({ _id: new ObjectId(roomId) });
+    const room = await db.collection('rooms').findOne({ code: roomId });
 
     if (!room) {
       return Response.json({ error: 'Room not found' }, { status: 404 });
@@ -1055,19 +1072,19 @@ export async function GET(request, { params }) {
       return handleGetTest(request, testId);
     }
     if (endpoint === '/rooms') return handleGetRooms(request);
-    if (endpoint.match(/^\/rooms\/[a-f0-9]{24}$/)) {
+    if (endpoint.match(/^\/rooms\/\d{3}$/)) {
       const roomId = path[1];
       return handleGetRoom(request, roomId);
     }
-    if (endpoint.match(/^\/rooms\/[a-f0-9]{24}\/questions$/)) {
+    if (endpoint.match(/^\/rooms\/\d{3}\/questions$/)) {
       const roomId = path[1];
       return handleGetRoomQuestions(request, roomId);
     }
-    if (endpoint.match(/^\/rooms\/[a-f0-9]{24}\/results$/)) {
+    if (endpoint.match(/^\/rooms\/\d{3}\/results$/)) {
       const roomId = path[1];
       return handleGetRoomResults(request, roomId);
     }
-    if (endpoint.match(/^\/rooms\/[a-f0-9]{24}\/results\/[a-f0-9]{24}$/)) {
+    if (endpoint.match(/^\/rooms\/\d{3}\/results\/[a-f0-9]{24}$/)) {
       const roomId = path[1];
       const studentId = path[3];
       return handleGetStudentResult(request, roomId, studentId);
@@ -1091,19 +1108,19 @@ export async function POST(request, { params }) {
     if (endpoint === '/auth/logout') return handleLogout(request);
     if (endpoint === '/tests') return handleCreateTest(request);
     if (endpoint === '/rooms') return handleCreateRoom(request);
-    if (endpoint.match(/^\/rooms\/[a-f0-9]{24}\/join$/)) {
+    if (endpoint.match(/^\/rooms\/\d{3}\/join$/)) {
       const roomId = path[1];
       return handleJoinRoom(request, roomId);
     }
-    if (endpoint.match(/^\/rooms\/[a-f0-9]{24}\/submit$/)) {
+    if (endpoint.match(/^\/rooms\/\d{3}\/submit$/)) {
       const roomId = path[1];
       return handleSubmitAnswers(request, roomId);
     }
-    if (endpoint.match(/^\/rooms\/[a-f0-9]{24}\/close$/)) {
+    if (endpoint.match(/^\/rooms\/\d{3}\/close$/)) {
       const roomId = path[1];
       return handleCloseRoom(request, roomId);
     }
-    if (endpoint.match(/^\/rooms\/[a-f0-9]{24}\/grade\/[a-f0-9]{24}$/)) {
+    if (endpoint.match(/^\/rooms\/\d{3}\/grade\/[a-f0-9]{24}$/)) {
       const roomId = path[1];
       const studentId = path[3];
       return handleManualGrade(request, roomId, studentId);

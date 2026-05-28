@@ -454,7 +454,7 @@ export default function CreateTest() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="ai-count">Миқдори саволҳо (дар ҳар вариант)</Label>
+                    <Label htmlFor="ai-count">Миқдори саволҳо</Label>
                     <Input
                       id="ai-count"
                       type="number"
@@ -546,7 +546,7 @@ export default function CreateTest() {
                 </div>
 
                 <div>
-                  <Label htmlFor="ai-description">Тавсифи иловагӣ (барои AI)</Label>
+                  <Label htmlFor="ai-description">Тавсифи иловагӣ</Label>
                   <Textarea
                     id="ai-description"
                     value={aiConfig.description}

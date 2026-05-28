@@ -80,10 +80,15 @@ export default function RoomView() {
     }
   }
 
+  function copyRoomCode() {
+    navigator.clipboard.writeText(roomId);
+    toast.success('Коди ҳӯҷра нусхабардорӣ шуд!');
+  }
+
   function copyRoomLink() {
     const link = `${window.location.origin}/room/${roomId}`;
     navigator.clipboard.writeText(link);
-    toast.success('Истиноди ҳуҷра ба хотира нусхабардорӣ шуд!');
+    toast.success('Истиноди ҳӯҷра нусхабардорӣ шуд!');
   }
 
   if (loading) {
@@ -128,10 +133,6 @@ export default function RoomView() {
                   <div className="flex gap-2">
                     {room.status === 'OPEN' ? (
                         <>
-                          <Button onClick={copyRoomLink}>
-                            <Copy className="mr-2 h-4 w-4" />
-                            Нусхабардории истинод
-                          </Button>
                           <Button variant="destructive" onClick={handleCloseRoom}>
                             <X className="mr-2 h-4 w-4" />
                             Пӯшидани ҳуҷра
@@ -147,18 +148,33 @@ export default function RoomView() {
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm">
-                    <span className="font-semibold">Истиноди ҳуҷра:</span>{' '}
-                    <code className="bg-muted px-2 py-1 rounded text-xs">
-                      {window.location.origin}/room/{roomId}
-                    </code>
+                <div className="space-y-4">
+                  {/* Big room code display */}
+                  <div className="flex items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-xl">
+                    <div className="text-center">
+                      <p className="text-xs text-muted-foreground mb-1">Коди ҳӯҷра</p>
+                      <span className="text-5xl font-black tracking-[0.3em] text-primary">{roomId}</span>
+                    </div>
+                    <div className="flex-1 text-sm text-muted-foreground">
+                      Ин кодро бо донишҷӯён мубодила кунед, то онҳо ба сайт ворид шаванд ва кодро ворид кунанд.
+                    </div>
+                    <Button size="sm" variant="outline" onClick={copyRoomCode}>
+                      <Copy className="mr-2 h-4 w-4" />
+                      Нусха
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Истинод: 
+                    <code className="bg-muted px-2 py-0.5 rounded ml-2">{typeof window !== 'undefined' ? window.location.origin : ''}/room/{roomId}</code>
+                    <Button size="sm" variant="ghost" className="ml-2 h-6 px-2" onClick={copyRoomLink}>
+                      <Copy className="h-3 w-3" />
+                    </Button>
                   </p>
-                  <p className="text-sm text-muted-foreground">
-                    {room.status === 'OPEN'
-                        ? 'Ин истинодро бо донишҷӯён мубодила кунед, то онҳо ба тест ҳамроҳ шаванд'
-                        : 'Ин ҳуҷра пӯшида шудааст. Донишҷӯён дигар наметавонанд ҷавобҳои худро ирсол кунанд.'}
-                  </p>
+                  {room.status !== 'OPEN' && (
+                    <p className="text-sm text-muted-foreground">
+                      Ин ҳӯҷра пӯшида шудааст. Донишҷӯён дигар наметавонанд ҷавобҳои худро ирсол кунанд.
+                    </p>
+                  )}
                 </div>
               </CardContent>
             </Card>
