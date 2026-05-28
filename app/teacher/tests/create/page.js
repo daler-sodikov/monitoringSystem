@@ -13,8 +13,16 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, ArrowLeft, Sparkles } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Sparkles, Loader2, AlertCircle, Signal, Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -27,6 +35,13 @@ export default function CreateTest() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
+
+  // Custom loader va progress bar uchun holatlar
+  const [loadingStep, setLoadingStep] = useState(0);
+  const [isDataReceived, setIsDataReceived] = useState(false);
+  const [progressValue, setProgressValue] = useState(0);
+
+  const [diagnostics, setDiagnostics] = useState(null);
   const [testData, setTestData] = useState({
     title: "",
     description: "",
@@ -47,19 +62,82 @@ export default function CreateTest() {
     variantCount: 1,
   });
 
-  useEffect(() => {
-    checkAuth();
-  }, []);
+  const loadingMessages = [
+    "Пайвастшавӣ ba AI...",
+    "Таҳлили мавзӯъ...",
+    "Генератсияи сaволҳо...",
+    "Сохтани вариантҳо...",
+    "Илова кардани тафсилот...",
+    "Дуруст кардани формат...",
+    "Омодасозии ниҳоӣ...",
+  ];
 
-  async function checkAuth() {
-    try {
-      const res = await fetch("/api/auth/me");
-      if (!res.ok || !(await res.json()).user) {
-        router.push("/");
+  // Loader intervali va progress bar dinamikasi (Sekindan -> Tezga)
+  useEffect(() => {
+    let messageInterval;
+    let progressInterval;
+
+    if (aiLoading) {
+      if (!isDataReceived) {
+        // 1. DATA KELGUNCHA: Matnlar sekin almashadi
+        messageInterval = setInterval(() => {
+          setLoadingStep((prev) => (prev + 1) % loadingMessages.length);
+        }, 4000);
+
+        // Progress bar sekin-asta maksimal 85% gacha ko'tariladi
+        progressInterval = setInterval(() => {
+          setProgressValue((prev) => {
+            if (prev < 85) return prev + 1;
+            return prev;
+          });
+        }, 250); // Har chorak soniyada 1%
+      } else {
+        // 2. DATA KELGANDA: Progress bar 100% ga qarab juda tez yuguradi
+        progressInterval = setInterval(() => {
+          setProgressValue((prev) => {
+            if (prev < 100) return prev + 5; // Har qadamda 5% dan qo'shadi
+            clearInterval(progressInterval);
+            return 100;
+          });
+        }, 30); // Har 30ms da tezlashadi
       }
-    } catch (error) {
-      router.push("/");
+
+      const handleBeforeUnload = (e) => {
+        e.preventDefault();
+        e.returnValue = "";
+      };
+      window.addEventListener("beforeunload", handleBeforeUnload);
+
+      return () => {
+        clearInterval(messageInterval);
+        clearInterval(progressInterval);
+        window.removeEventListener("beforeunload", handleBeforeUnload);
+      };
+    } else {
+      // Yuklanish butkul tugaganda holatlarni nollash
+      setProgressValue(0);
+      setLoadingStep(0);
+      setIsDataReceived(false);
     }
+  }, [aiLoading, isDataReceived]);
+
+  async function runDiagnostics() {
+    const diag = {
+      online: navigator.onLine,
+      timestamp: new Date().toISOString(),
+      userAgent: navigator.userAgent,
+    };
+
+    try {
+      const start = Date.now();
+      const res = await fetch("/api/auth/me", { cache: "no-store" });
+      diag.serverReachability = res.ok;
+      diag.latency = Date.now() - start;
+    } catch (e) {
+      diag.serverReachability = false;
+      diag.error = e.message;
+    }
+    setDiagnostics(diag);
   }
 
   async function generateTest() {
@@ -69,6 +147,9 @@ export default function CreateTest() {
     }
 
     setAiLoading(true);
+    setIsDataReceived(false);
+    setProgressValue(0);
+
     try {
       const res = await fetch("/api/generate-test", {
         method: "POST",
@@ -86,6 +167,13 @@ export default function CreateTest() {
 
       if (res.ok) {
         const data = await res.json();
+
+        // Muvaffaqiyatli javob keldi -> useEffect dagi tezlashuv trigger bo'ladi
+        setIsDataReceived(true);
+
+        // Progress bar 100% ga yetib olishi uchun birozgina kutib turamiz
+        await new Promise((resolve) => setTimeout(resolve, 600));
+
         setTestData({
           ...testData,
           title: testData.title || aiConfig.subject,
@@ -261,6 +349,83 @@ export default function CreateTest() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+      <Dialog open={aiLoading}>
+        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Sparkles className="h-5 w-5 text-purple-600 animate-pulse" />
+              Генератсияи саволҳо бо AI
+            </DialogTitle>
+            <DialogDescription>
+              Лутфан саҳифаро нав накунед. AI дар ҳоли сохтани тест аст.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center py-6 space-y-4">
+            <div className="relative">
+              {/* Data kelganda spin kodi keskin tezlashadi (2.5s dan 0.25s ga tushadi) */}
+              <Loader2
+                className="h-16 w-16 text-purple-600"
+                style={{
+                  animation: "spin linear infinite",
+                  animationDuration: isDataReceived ? "0.25s" : "2.5s"
+                }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center">
+                <div className="h-8 w-8 bg-white rounded-full flex items-center justify-center shadow-sm">
+                  <span className="text-xs font-bold text-purple-600">
+                    {progressValue}%
+                  </span>
+                </div>
+              </div>
+            </div>
+            <div className="text-center space-y-2 w-full">
+              <p className="font-medium text-lg text-purple-900 h-7">
+                {isDataReceived ? "Маълумот қабул шуд! Омодасозии ниҳоӣ..." : loadingMessages[loadingStep]}
+              </p>
+              <Progress value={progressValue} className="h-2 transition-all duration-300 ease-out" />
+              <p className="text-xs text-muted-foreground italic">
+                {isDataReceived ? "Камтар аз як сония монд..." : "Ин метавонад то чанд дақиқа вақт гирад..."}
+              </p>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!diagnostics} onOpenChange={() => setDiagnostics(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-destructive">
+              <AlertCircle className="h-5 w-5" />
+              Диагностикаи пайваст
+            </DialogTitle>
+            <DialogDescription>
+              Вақти интизорӣ ба охир расид. Инҳо маълумот дар бораи пайвасти шумо:
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                {diagnostics?.online ? <Wifi className="h-4 w-4 text-green-600" /> : <WifiOff className="h-4 w-4 text-red-600" />}
+                <span>Интернет: {diagnostics?.online ? "Ҳаст" : "Нест"}</span>
+              </div>
+              <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
+                <Signal className="h-4 w-4 text-blue-600" />
+                <span>Сервер: {diagnostics?.serverReachability ? "Дастрас" : "Ғайридастрас"}</span>
+              </div>
+            </div>
+            {diagnostics?.latency && (
+              <div className="text-xs text-muted-foreground p-2 border rounded">
+                Таъхири сервер (Latency): {diagnostics.latency}ms
+              </div>
+            )}
+            <p className="text-sm text-muted-foreground">
+              Эзоҳ: Моделҳои калони забонӣ баъзан метавонанд зиёда аз 10 дақиқа вақт гиранд ё пайвастро қатъ кунанд. Лутфан дубора кӯшиш кунед ё миқдори саволҳоро кам кунед.
+            </p>
+          </div>
+          <Button onClick={() => setDiagnostics(null)} className="w-full">Пӯшидан</Button>
+        </DialogContent>
+      </Dialog>
+
       <div className="container mx-auto max-w-4xl">
         <div className="mb-6">
           <Button variant="outline" onClick={() => router.push("/teacher")}>
@@ -303,7 +468,7 @@ export default function CreateTest() {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="ai-subject">Мавзӯъ/Номи дисциплина</Label>
+                    <Label htmlFor="ai-subject">Мавзӯъ</Label>
                     <Input
                       id="ai-subject"
                       value={aiConfig.subject}
@@ -325,7 +490,6 @@ export default function CreateTest() {
                       onChange={(e) =>
                         setAiConfig({ ...aiConfig, level: e.target.value })
                       }
-                      placeholder="Масалан: Дастсоҳӣ, Ибтидоӣ, Мутавассит"
                       className="mt-1"
                     />
                   </div>
@@ -403,8 +567,8 @@ export default function CreateTest() {
                 >
                   {aiLoading ? (
                     <>
-                      <Sparkles className="mr-2 h-4 w-4 animate-spin" />
-                      Генератсияи савол...
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Дар ҳоли генератсия...
                     </>
                   ) : (
                     <>
@@ -476,7 +640,7 @@ export default function CreateTest() {
                             onClick={() => addQuestion(variantIndex)}
                           >
                             <Plus className="mr-2 h-4 w-4" />
-                            Иловаи савол
+                            Иловаи sавол
                           </Button>
                           {testData.variants.length > 1 && (
                             <Button
@@ -523,7 +687,7 @@ export default function CreateTest() {
                                     <div>
                                       <Label>Навъ</Label>
                                       <select
-                                        className="w-full p-2 border rounded-md"
+                                        className="w-full p-2 border rounded-md bg-white"
                                         value={question.type}
                                         onChange={(e) =>
                                           updateQuestion(
@@ -710,7 +874,7 @@ export default function CreateTest() {
 
                                   {question.type === "OPEN" && (
                                     <p className="text-sm text-muted-foreground italic">
-                                      Савол бо ҷавоби кушод (мати)
+                                      Савол бо ҷавоби кушод (матни)
                                     </p>
                                   )}
                                 </div>

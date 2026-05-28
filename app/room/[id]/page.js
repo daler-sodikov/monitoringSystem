@@ -25,7 +25,7 @@ export default function RoomAccess() {
   const [showLogin, setShowLogin] = useState(false);
   const [studentName, setStudentName] = useState('');
   const [submitted, setSubmitted] = useState(false);
-  
+
   // Track selected left item for matching questions
   const [selectedLeft, setSelectedLeft] = useState(null);
 
@@ -152,13 +152,13 @@ export default function RoomAccess() {
     if (submitted) return;
 
     const currentMatches = answers[questionId] || [];
-    
+
     // Check if this left item already has a match
     const existingMatchIndex = currentMatches.findIndex(m => m.leftId === leftId);
-    
+
     // Check if this right item is already taken
     const rightTaken = currentMatches.some(m => m.rightId === rightId && m.leftId !== leftId);
-    
+
     if (rightTaken) {
       toast.error('Ин вариант аллакай интихоб шудааст');
       return;
@@ -181,7 +181,7 @@ export default function RoomAccess() {
   // Remove a match
   function removeMatch(questionId, leftId) {
     if (submitted) return;
-    
+
     const currentMatches = answers[questionId] || [];
     const newMatches = currentMatches.filter(m => m.leftId !== leftId);
     handleAnswerChange(questionId, newMatches);
@@ -410,17 +410,17 @@ export default function RoomAccess() {
                         {question.lefts?.map((left) => {
                           const matchedRightId = getMatchedRightId(question._id, left.id);
                           const isSelected = selectedLeft === left.id;
-                          
+
                           return (
                             <div
                               key={left.id}
                               onClick={() => !submitted && !matchedRightId && setSelectedLeft(left.id)}
                               className={`
                                 p-4 border-2 rounded-lg transition-all cursor-pointer
-                                ${matchedRightId 
-                                  ? 'border-green-500 bg-green-50' 
-                                  : isSelected 
-                                    ? 'border-blue-500 bg-blue-50 shadow-md' 
+                                ${matchedRightId
+                                  ? 'border-green-500 bg-green-50'
+                                  : isSelected
+                                    ? 'border-blue-500 bg-blue-50 shadow-md'
                                     : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
                                 }
                                 ${submitted && 'opacity-75 cursor-not-allowed'}
@@ -446,7 +446,7 @@ export default function RoomAccess() {
                         {question.rights?.map((right) => {
                           const isMatched = isRightMatched(question._id, right.id);
                           const isAvailable = !isMatched && selectedLeft;
-                          
+
                           return (
                             <div
                               key={right.id}
@@ -458,8 +458,8 @@ export default function RoomAccess() {
                               }}
                               className={`
                                 p-4 border-2 rounded-lg transition-all
-                                ${isMatched 
-                                  ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed' 
+                                ${isMatched
+                                  ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
                                   : isAvailable
                                     ? 'border-blue-500 bg-blue-50 cursor-pointer hover:shadow-md'
                                     : 'border-gray-200 cursor-default'
@@ -546,11 +546,9 @@ export default function RoomAccess() {
                 <div className="text-center space-y-2">
                   <p className="text-lg font-semibold text-green-600">Ҷавобҳо ирсол шуданд!</p>
                   <p className="text-muted-foreground">
-                    Ҷавобҳои шумо сабт карда шуданд. Шумо метавонед то лаҳзаи пӯшидани ҳуҷра тавассути муаллим онҳоро тағйир диҳед.
+                    Ҷавобҳои шумо сабт карда шуданд
                   </p>
-                  <Button onClick={handleSubmit} variant="outline" className="mt-4">
-                    Тағйир додани ҷавобҳо
-                  </Button>
+
                 </div>
               </CardContent>
             </Card>

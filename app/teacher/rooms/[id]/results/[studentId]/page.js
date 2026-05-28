@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, CheckCircle2, XCircle, HelpCircle, User } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, XCircle, HelpCircle, User, Loader2, Save, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function StudentResultDetail() {
@@ -16,6 +16,8 @@ export default function StudentResultDetail() {
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [grading, setGrading] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (roomId && studentId) {
@@ -53,7 +55,14 @@ export default function StudentResultDetail() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Боршавӣ...</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg font-medium text-muted-foreground animate-pulse">
+          Дар ҳоли боргузорӣ...
+        </p>
+      </div>
+    );
   }
 
   if (!data || !data.result) {
@@ -61,6 +70,27 @@ export default function StudentResultDetail() {
   }
 
   const { room, student, result, questions } = data;
+
+  async function handleGradeQuestion(questionId, isCorrect) {
+    setGrading({ questionId, isCorrect });
+    try {
+      const res = await fetch(`/api/rooms/${roomId}/grade/${studentId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionId, isCorrect })
+      });
+      if (res.ok) {
+        toast.success(isCorrect ? 'Ҷавоб дуруст маъқул шуд' : 'Ҷавоб нодуруст маъқул шуд');
+        setRefreshKey(prev => prev + 1);
+      } else {
+        toast.error('Хатогӣ ҳангоми ҳисоб кардан хол');
+      }
+    } catch (error) {
+      toast.error('Хатогӣ ҳангоми ҳисоб кардан хол');
+    } finally {
+      setGrading(null);
+    }
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
@@ -87,12 +117,19 @@ export default function StudentResultDetail() {
               </div>
               <div className="text-center md:text-right">
                 <div className="text-4xl font-bold text-indigo-600">{result.percentage}%</div>
-                <Badge 
-                  variant={result.percentage >= 60 ? 'default' : 'destructive'}
-                  className={result.percentage >= 60 ? 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200' : ''}
-                >
-                  {result.percentage >= 60 ? 'Гузашт' : 'Нагузашт'}
-                </Badge>
+                <div className="flex items-center justify-center gap-2 mt-1">
+                  <Badge
+                    variant={result.percentage >= 60 ? 'default' : 'destructive'}
+                    className={result.percentage >= 60 ? 'bg-green-100 text-green-700 hover:bg-green-100 border-green-200' : ''}
+                  >
+                    {result.percentage >= 60 ? 'Гузашт' : 'Нагузашт'}
+                  </Badge>
+                  {questions.some(q => q.type === 'OPEN' && q.answer && q.answer.isCorrect === null) && (
+                    <Badge variant="outline" className="text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100 text-xs">
+                      Номуайян
+                    </Badge>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent className="border-t pt-4">
@@ -123,7 +160,7 @@ export default function StudentResultDetail() {
             </h2>
             {questions.map((q, idx) => (
               <Card key={q._id} className="border-none shadow-md overflow-hidden">
-                <div className={`h-1.5 ${q.answer?.isCorrect ? 'bg-green-500' : q.answer ? 'bg-red-500' : 'bg-gray-300'}`} />
+                <div className={`h-1.5 ${q.answer?.isCorrect === true ? 'bg-green-500' : q.answer?.isCorrect === false ? 'bg-red-500' : q.answer ? 'bg-amber-500' : 'bg-gray-300'}`} />
                 <CardHeader className="pb-2 bg-white">
                   <div className="flex justify-between items-start gap-4">
                     <div className="space-y-1">
@@ -135,10 +172,12 @@ export default function StudentResultDetail() {
                     </div>
                     <div className="flex flex-col items-end gap-1 shrink-0">
                        <span className="text-sm font-bold text-gray-700">{q.points} хол</span>
-                       {q.answer?.isCorrect ? (
+                       {q.answer?.isCorrect === true ? (
                          <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200">Дуруст</Badge>
-                       ) : q.answer ? (
+                       ) : q.answer?.isCorrect === false ? (
                          <Badge variant="destructive" className="bg-red-100 text-red-700 hover:bg-red-100 border-red-200">Нодуруст</Badge>
+                       ) : q.answer ? (
+                         <Badge variant="outline" className="text-amber-700 bg-amber-50 border-amber-200 hover:bg-amber-100">Мушкили номуайян</Badge>
                        ) : (
                          <Badge variant="secondary">Ҷавоб дода нашуд</Badge>
                        )}
@@ -220,6 +259,27 @@ export default function StudentResultDetail() {
                       <div className="mt-4 flex items-center gap-2 text-xs text-amber-600 bg-amber-50/50 p-2 rounded border border-amber-100">
                         <HelpCircle className="h-3 w-3" />
                         Саволҳои кушода бояд аз ҷониби муаллим дастӣ санҷида шаванд
+                      </div>
+                      <div className="mt-4 pt-4 border-t flex items-center gap-2">
+                        <span className="text-xs font-medium text-muted-foreground">Санҷида шудааст:</span>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={grading?.questionId === q._id}
+                          onClick={() => handleGradeQuestion(q._id, true)}
+                        >
+                          <CheckCircle2 className="h-3 w-3 mr-1 text-green-600" />
+                          <span className="text-green-700">Дуруст</span>
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={grading?.questionId === q._id}
+                          onClick={() => handleGradeQuestion(q._id, false)}
+                        >
+                          <XCircle className="h-3 w-3 mr-1 text-red-600" />
+                          <span className="text-red-700">Нодуруст</span>
+                        </Button>
                       </div>
                     </div>
                   )}

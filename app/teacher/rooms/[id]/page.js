@@ -5,7 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Copy, X, BarChart3, ChevronRight } from 'lucide-react';
+import { ArrowLeft, Copy, X, BarChart3, ChevronRight, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function RoomView() {
@@ -87,7 +87,14 @@ export default function RoomView() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Боршавӣ...</div>;
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
+        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
+        <p className="text-lg font-medium text-muted-foreground animate-pulse">
+          Дар ҳоли боргузорӣ...
+        </p>
+      </div>
+    );
   }
 
   if (!room) {

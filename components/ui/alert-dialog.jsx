@@ -84,6 +84,54 @@ const AlertDialogCancel = React.forwardRef(({ className, ...props }, ref) => (
 ))
 AlertDialogCancel.displayName = AlertDialogPrimitive.Cancel.displayName
 
+// Loading modal component
+const LoadingDialog = ({
+  isOpen,
+  onClose,
+  title,
+  description,
+  progressMessage,
+  canCancel,
+  onCancel,
+}) => {
+  if (!isOpen) return null
+
+  return (
+    <AlertDialog open={isOpen}>
+      <AlertDialogContent className="sm:max-w-md" onOpenChange={(open) => !open && onClose && onClose()}>
+        <AlertDialogHeader>
+          <div className="flex items-center justify-center space-x-3 mb-4">
+            <div className="relative">
+              <div className="h-12 w-12 rounded-full border-4 border-t-primary border-r-primary border-b-secondary border-l-secondary animate-spin" />
+              <div className="absolute top-0 left-0 h-12 w-12 rounded-full border-4 border-t-primary border-r-primary border-b-secondary border-l-secondary animate-spin opacity-50" style={{ animationDirection: 'reverse' }} />
+            </div>
+          </div>
+          <AlertDialogTitle className="text-center text-xl">{title}</AlertDialogTitle>
+          <AlertDialogDescription className="text-center text-muted-foreground">
+            {description}
+          </AlertDialogDescription>
+        </AlertDialogHeader>
+
+        {progressMessage && (
+          <div className="py-4">
+            <div className="text-center text-sm text-primary font-medium animate-pulse">
+              {progressMessage}
+            </div>
+          </div>
+        )}
+
+        <AlertDialogFooter>
+          {canCancel && (
+            <AlertDialogCancel onClick={onCancel}>Бекор кардан</AlertDialogCancel>
+          )}
+        </AlertDialogFooter>
+      </AlertDialogContent>
+    </AlertDialog>
+  )
+}
+
+LoadingDialog.displayName = "LoadingDialog"
+
 export {
   AlertDialog,
   AlertDialogPortal,
@@ -96,4 +144,5 @@ export {
   AlertDialogDescription,
   AlertDialogAction,
   AlertDialogCancel,
+  LoadingDialog,
 }

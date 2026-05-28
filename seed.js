@@ -1,4 +1,4 @@
-const { MongoClient, ObjectId } = require("mongodb");
+const { MongoClient } = require("mongodb");
 const bcrypt = require("bcryptjs");
 require("dotenv").config();
 
@@ -44,6 +44,7 @@ async function seed() {
       role: "ADMIN",
       createdAt: new Date(),
     });
+    console.log("admin@test.com, admin123")
 
     const teacher = await db.collection("users").insertOne({
       name: "Teacher User",
