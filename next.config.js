@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  serverExternalPackages: ['mongodb'],
+  serverExternalPackages: ['mongodb', 'pdf-parse', 'mammoth'],
   turbopack: {},
   async headers() {
     return [

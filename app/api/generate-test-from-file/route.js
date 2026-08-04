@@ -1,36 +1,85 @@
 import { chatCompletionStream, parseGeneratedJson } from "@/lib/kimi";
+import { extractTextFromFile } from "@/lib/extract-text";
+
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 МБ
+const MAX_TEXT_CHARS = 20000; // то ҳудуди контексти модел
 
 export async function POST(request) {
   try {
-    const {
-      count,
-      subject,
-      level,
-      difficulty,
-      description,
-      language = "тоҷикӣ",
-      variantCount = 1,
-    } = await request.json();
+    const formData = await request.formData();
+    const file = formData.get("file");
 
-    if (!count || count < 1 || count > 10) {
+    if (!file || typeof file === "string") {
       return Response.json(
-        { error: "Миқдори саволҳо бояд аз 1 то 10 бошад" },
+        { error: "Лутфан файлро бор кунед" },
         { status: 400 },
       );
     }
 
-    if (!variantCount || variantCount < 1 || variantCount > 10) {
+    const fileName = file.name || "";
+    if (!/\.(pdf|docx)$/i.test(fileName)) {
       return Response.json(
-        { error: "Миқдори вариантҳо бояд аз 1 то 10 бошад" },
+        { error: "Танҳо файлҳои PDF ва Word (DOCX) дастгирӣ мешаванд" },
         { status: 400 },
       );
     }
 
-    const prompt = `Бисоз ${variantCount} варианти тест, ки ҳар кадомаш дорои ${count} савол аст дар мавзӯи "${subject || ""}"
+    if (file.size > MAX_FILE_SIZE) {
+      return Response.json(
+        { error: "Андозаи файл набояд аз 10 МБ зиёд бошад" },
+        { status: 400 },
+      );
+    }
+
+    const count = Math.min(
+      10,
+      Math.max(1, parseInt(formData.get("count")) || 1),
+    );
+    const variantCount = Math.min(
+      10,
+      Math.max(1, parseInt(formData.get("variantCount")) || 1),
+    );
+    const subject = String(formData.get("subject") || "");
+    const level = String(formData.get("level") || "");
+    const difficulty = String(formData.get("difficulty") || "");
+    const description = String(formData.get("description") || "");
+    const language = String(formData.get("language") || "тоҷикӣ");
+
+    const buffer = Buffer.from(await file.arrayBuffer());
+
+    let extractedText;
+    try {
+      extractedText = await extractTextFromFile(buffer, fileName);
+    } catch (extractError) {
+      return Response.json(
+        { error: "Хатогӣ ҳангоми хондани файл: " + extractError.message },
+        { status: 400 },
+      );
+    }
+
+    if (!extractedText.trim()) {
+      return Response.json(
+        { error: "Аз файли додашуда матн ёфт нашуд" },
+        { status: 400 },
+      );
+    }
+
+    const truncated = extractedText.length > MAX_TEXT_CHARS;
+    const text = extractedText.slice(0, MAX_TEXT_CHARS);
+
+    const prompt = `Дар асоси матни ҳуҷҷати боркардашуда ${variantCount} варианти тест бисоз, ки ҳар кадомаш дорои ${count} савол аст.
+    ${subject ? `Мавзӯи умумӣ: "${subject}"` : ""}
+    ${level ? `барои сатҳи ${level}` : ""}
     ${difficulty ? `бо дараҷаи душвории ${difficulty}` : ""}
-    ${description ? `Тавсифи иловагӣ: ${description}` : ""}
+    ${description ? `Дастури махсуси корбар: "${description}". Ин дастурро ҳатман риоя кун. Агар корбар саҳифаҳои муайянро номбар карда бошад (масалан "аз саҳифаи 5 то 10"), донистанӣ лозим, ки матни ҳуҷҷат бо нишонаҳои "--- Саҳифаи N ---" ҷудо шудааст ва саволҳоро танҳо аз ҳамон саҳифаҳо гир.` : ""}
 
     Забони саволҳо ва ҷавобҳо: ${language}
+
+    Матни ҳуҷҷат:
+    """
+    ${text}
+    """
+    ${truncated ? "(Эзоҳ: ҳуҷҷат хеле дароз аст, танҳо қисмати аввали он оварда шудааст)" : ""}
 
     Шакли дархостшуда барои ҳар як савол:
     - Матни савол
@@ -75,7 +124,7 @@ export async function POST(request) {
       }]
     }
 
-    Эзоҳ: Танҳо JSON фиристед, бе матни иловагӣ. JSON бояд дуруст бошад. Саволҳо ва ҷавобҳо бояд бо забони ${language} бошанд.`;
+    Эзоҳ: Танҳо JSON фиристед, бе матни иловагӣ. JSON бояд дуруст бошад. Саволҳо ва ҷавобҳо бояд бо забони ${language} бошанд ва танҳо аз матни ҳуҷҷати додашуда асосёфта бошанд.`;
 
     const encoder = new TextEncoder();
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,7 +13,18 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Trash2, ArrowLeft, Sparkles, Loader2, AlertCircle, Signal, Wifi, WifiOff } from "lucide-react";
+import {
+  Plus,
+  Trash2,
+  ArrowLeft,
+  Sparkles,
+  Loader2,
+  AlertCircle,
+  Signal,
+  Wifi,
+  WifiOff,
+  Upload,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -31,15 +42,57 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 
+// NDJSON streamро мехонад: har қатор як воқеа (delta | done | error)
+async function readGenerationStream(res, onDelta) {
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let doneData = null;
+  let streamError = null;
+
+  const handleLine = (line) => {
+    if (!line.trim()) return;
+    let event;
+    try {
+      event = JSON.parse(line);
+    } catch {
+      return;
+    }
+    if (event.type === "delta") {
+      onDelta(event.text);
+    } else if (event.type === "done") {
+      doneData = event;
+    } else if (event.type === "error") {
+      streamError = event.error;
+    }
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+    const lines = buffer.split("\n");
+    buffer = lines.pop();
+    lines.forEach(handleLine);
+  }
+  handleLine(buffer);
+
+  return { doneData, streamError };
+}
+
 export default function CreateTest() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
 
-  // Custom loader va progress bar uchun holatlar
-  const [loadingStep, setLoadingStep] = useState(0);
-  const [isDataReceived, setIsDataReceived] = useState(false);
-  const [progressValue, setProgressValue] = useState(0);
+  // Stream holati: qabul qilingan matn va yakuniy natija
+  const [streamedText, setStreamedText] = useState("");
+  const [streamDone, setStreamDone] = useState(false);
+  const previewRef = useRef(null);
+
+  // Ҳуҷҷат боркунӣ: файл ва дастури иловагии корбар
+  const [aiFile, setAiFile] = useState(null);
+  const [fileDescription, setFileDescription] = useState("");
 
   const [diagnostics, setDiagnostics] = useState(null);
   const [testData, setTestData] = useState({
@@ -62,64 +115,34 @@ export default function CreateTest() {
     variantCount: 1,
   });
 
-  const loadingMessages = [
-    "Пайвастшавӣ ba AI...",
-    "Таҳлили мавзӯъ...",
-    "Генератсияи сaволҳо...",
-    "Сохтани вариантҳо...",
-    "Илова кардани тафсилот...",
-    "Дуруст кардани формат...",
-    "Омодасозии ниҳоӣ...",
-  ];
+  // Progress stream asosida: qabul qilingan belgilar soni taxminiy hajmga nisbatan
+  const estimatedChars =
+    Math.max(
+      1,
+      (parseInt(aiConfig.count) || 1) * (parseInt(aiConfig.variantCount) || 1),
+    ) * 450;
+  const progressValue = streamDone
+    ? 100
+    : Math.min(95, Math.round((streamedText.length / estimatedChars) * 100));
 
-  // Loader intervali va progress bar dinamikasi (Sekindan -> Tezga)
+  // Generatsiya paytida sahifani yangilashdan ogohlantirish
   useEffect(() => {
-    let messageInterval;
-    let progressInterval;
+    if (!aiLoading) return;
 
-    if (aiLoading) {
-      if (!isDataReceived) {
-        // 1. DATA KELGUNCHA: Matnlar sekin almashadi
-        messageInterval = setInterval(() => {
-          setLoadingStep((prev) => (prev + 1) % loadingMessages.length);
-        }, 4000);
+    const handleBeforeUnload = (e) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [aiLoading]);
 
-        // Progress bar sekin-asta maksimal 85% gacha ko'tariladi
-        progressInterval = setInterval(() => {
-          setProgressValue((prev) => {
-            if (prev < 85) return prev + 1;
-            return prev;
-          });
-        }, 250); // Har chorak soniyada 1%
-      } else {
-        // 2. DATA KELGANDA: Progress bar 100% ga qarab juda tez yuguradi
-        progressInterval = setInterval(() => {
-          setProgressValue((prev) => {
-            if (prev < 100) return prev + 5; // Har qadamda 5% dan qo'shadi
-            clearInterval(progressInterval);
-            return 100;
-          });
-        }, 30); // Har 30ms da tezlashadi
-      }
-
-      const handleBeforeUnload = (e) => {
-        e.preventDefault();
-        e.returnValue = "";
-      };
-      window.addEventListener("beforeunload", handleBeforeUnload);
-
-      return () => {
-        clearInterval(messageInterval);
-        clearInterval(progressInterval);
-        window.removeEventListener("beforeunload", handleBeforeUnload);
-      };
-    } else {
-      // Yuklanish butkul tugaganda holatlarni nollash
-      setProgressValue(0);
-      setLoadingStep(0);
-      setIsDataReceived(false);
+  // Yangi qism kelganda preview pastga sirpanadi
+  useEffect(() => {
+    if (previewRef.current) {
+      previewRef.current.scrollTop = previewRef.current.scrollHeight;
     }
-  }, [aiLoading, isDataReceived]);
+  }, [streamedText]);
 
   async function runDiagnostics() {
     const diag = {
@@ -147,8 +170,8 @@ export default function CreateTest() {
     }
 
     setAiLoading(true);
-    setIsDataReceived(false);
-    setProgressValue(0);
+    setStreamedText("");
+    setStreamDone(false);
 
     try {
       const res = await fetch("/api/generate-test", {
@@ -165,29 +188,100 @@ export default function CreateTest() {
         }),
       });
 
-      if (res.ok) {
-        const data = await res.json();
+      if (!res.ok) {
+        const errorData = await res.json();
+        toast.error(errorData.error || "Хатогӣ ҳангоми тавлиди савол");
+        return;
+      }
 
-        // Muvaffaqiyatli javob keldi -> useEffect dagi tezlashuv trigger bo'ladi
-        setIsDataReceived(true);
+      const { doneData, streamError } = await readGenerationStream(
+        res,
+        (delta) => setStreamedText((prev) => prev + delta),
+      );
 
-        // Progress bar 100% ga yetib olishi uchun birozgina kutib turamiz
+      if (streamError) {
+        toast.error(streamError);
+        return;
+      }
+
+      if (doneData?.variants) {
+        // Stream tugadi -> progress 100% ga yetadi va dialog yopiladi
+        setStreamDone(true);
         await new Promise((resolve) => setTimeout(resolve, 600));
 
         setTestData({
           ...testData,
           title: testData.title || aiConfig.subject,
-          variants: data.variants || [
-            {
-              name: `Варианти ${testData.variants.length + 1}`,
-              questions: [],
-            },
-          ],
+          variants: doneData.variants,
         });
         toast.success("Саволҳо бо ёрии AI бомуваффақият сохта шуданд!");
       } else {
+        toast.error("Хатогӣ ҳангоми тавлиди савол");
+      }
+    } catch (error) {
+      toast.error("Хатогӣ рӯй дод: " + error.message);
+    } finally {
+      setAiLoading(false);
+    }
+  }
+
+  async function generateTestFromFile() {
+    if (!aiFile) {
+      toast.error("Лутфан аввал файлро интихоб кунед");
+      return;
+    }
+
+    setAiLoading(true);
+    setStreamedText("");
+    setStreamDone(false);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", aiFile);
+      formData.append("count", String(parseInt(aiConfig.count) || 1));
+      formData.append(
+        "variantCount",
+        String(parseInt(aiConfig.variantCount) || 1),
+      );
+      formData.append("subject", aiConfig.subject);
+      formData.append("level", aiConfig.level);
+      formData.append("difficulty", aiConfig.difficulty);
+      formData.append("language", aiConfig.language);
+      formData.append("description", fileDescription);
+
+      const res = await fetch("/api/generate-test-from-file", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!res.ok) {
         const errorData = await res.json();
-        toast.error(errorData.error || "Хатогӣ ҳангоми тавлиди савол");
+        toast.error(errorData.error || "Хатогӣ ҳангоми коркарди файл");
+        return;
+      }
+
+      const { doneData, streamError } = await readGenerationStream(
+        res,
+        (delta) => setStreamedText((prev) => prev + delta),
+      );
+
+      if (streamError) {
+        toast.error(streamError);
+        return;
+      }
+
+      if (doneData?.variants) {
+        setStreamDone(true);
+        await new Promise((resolve) => setTimeout(resolve, 600));
+
+        setTestData({
+          ...testData,
+          title: testData.title || aiFile.name.replace(/\.[^.]+$/, ""),
+          variants: doneData.variants,
+        });
+        toast.success("Саволҳо аз ҳуҷҷат бомуваффақият сохта шуданд!");
+      } else {
+        toast.error("Хатогӣ ҳангоми тавлиди савол");
       }
     } catch (error) {
       toast.error("Хатогӣ рӯй дод: " + error.message);
@@ -350,7 +444,10 @@ export default function CreateTest() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
       <Dialog open={aiLoading}>
-        <DialogContent className="sm:max-w-md" onPointerDownOutside={(e) => e.preventDefault()}>
+        <DialogContent
+          className="sm:max-w-md"
+          onPointerDownOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Sparkles className="h-5 w-5 text-purple-600 animate-pulse" />
@@ -362,12 +459,12 @@ export default function CreateTest() {
           </DialogHeader>
           <div className="flex flex-col items-center justify-center py-6 space-y-4">
             <div className="relative">
-              {/* Data kelganda spin kodi keskin tezlashadi (2.5s dan 0.25s ga tushadi) */}
+              {/* Stream ochilganda spinner tezlashadi */}
               <Loader2
                 className="h-16 w-16 text-purple-600"
                 style={{
                   animation: "spin linear infinite",
-                  animationDuration: isDataReceived ? "0.25s" : "2.5s"
+                  animationDuration: streamedText ? "0.75s" : "2.5s",
                 }}
               />
               <div className="absolute inset-0 flex items-center justify-center">
@@ -380,13 +477,33 @@ export default function CreateTest() {
             </div>
             <div className="text-center space-y-2 w-full">
               <p className="font-medium text-lg text-purple-900 h-7">
-                {isDataReceived ? "Маълумот қабул шуд! Омодасозии ниҳоӣ..." : loadingMessages[loadingStep]}
+                {streamDone
+                  ? "Маълумот қабул шуд! Омодасозии ниҳоӣ..."
+                  : streamedText
+                    ? `Қабул шуда истодааст: ${streamedText.length} аломат`
+                    : "Пайвастшавӣ ба AI..."}
               </p>
-              <Progress value={progressValue} className="h-2 transition-all duration-300 ease-out" />
+              <Progress
+                value={progressValue}
+                className="h-2 transition-all duration-300 ease-out"
+              />
               <p className="text-xs text-muted-foreground italic">
-                {isDataReceived ? "Камтар аз як сония монд..." : "Ин метавонад то чанд дақиқа вақт гирад..."}
+                {streamDone
+                  ? "Камтар аз як сония монд..."
+                  : "Ҷавоби AI дар вақти воқеӣ намоиш дода мешавад"}
               </p>
             </div>
+            {/* Streamdan kelayotgan matnning jonli namoyishi */}
+            {streamedText && (
+              <div
+                ref={previewRef}
+                className="w-full max-h-36 overflow-y-auto rounded-md border bg-muted/50 p-2"
+              >
+                <pre className="text-[10px] leading-4 font-mono whitespace-pre-wrap break-all text-muted-foreground">
+                  {streamedText}
+                </pre>
+              </div>
+            )}
           </div>
         </DialogContent>
       </Dialog>
@@ -399,18 +516,26 @@ export default function CreateTest() {
               Диагностикаи пайваст
             </DialogTitle>
             <DialogDescription>
-              Вақти интизорӣ ба охир расид. Инҳо маълумот дар бораи пайвасти шумо:
+              Вақти интизорӣ ба охир расид. Инҳо маълумот дар бораи пайвасти
+              шумо:
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                {diagnostics?.online ? <Wifi className="h-4 w-4 text-green-600" /> : <WifiOff className="h-4 w-4 text-red-600" />}
+                {diagnostics?.online ? (
+                  <Wifi className="h-4 w-4 text-green-600" />
+                ) : (
+                  <WifiOff className="h-4 w-4 text-red-600" />
+                )}
                 <span>Интернет: {diagnostics?.online ? "Ҳаст" : "Нест"}</span>
               </div>
               <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
                 <Signal className="h-4 w-4 text-blue-600" />
-                <span>Сервер: {diagnostics?.serverReachability ? "Дастрас" : "Ғайридастрас"}</span>
+                <span>
+                  Сервер:{" "}
+                  {diagnostics?.serverReachability ? "Дастрас" : "Ғайридастрас"}
+                </span>
               </div>
             </div>
             {diagnostics?.latency && (
@@ -419,10 +544,14 @@ export default function CreateTest() {
               </div>
             )}
             <p className="text-sm text-muted-foreground">
-              Эзоҳ: Моделҳои калони забонӣ баъзан метавонанд зиёда аз 10 дақиқа вақт гиранд ё пайвастро қатъ кунанд. Лутфан дубора кӯшиш кунед ё миқдори саволҳоро кам кунед.
+              Эзоҳ: Моделҳои калони забонӣ баъзан метавонанд зиёда аз 10 дақиқа
+              вақт гиранд ё пайвастро қатъ кунанд. Лутфан дубора кӯшиш кунед ё
+              миқдори саволҳоро кам кунед.
             </p>
           </div>
-          <Button onClick={() => setDiagnostics(null)} className="w-full">Пӯшидан</Button>
+          <Button onClick={() => setDiagnostics(null)} className="w-full">
+            Пӯшидан
+          </Button>
         </DialogContent>
       </Dialog>
 
@@ -448,7 +577,7 @@ export default function CreateTest() {
                 <div className="flex items-center gap-2 mb-2">
                   <Sparkles className="text-purple-600 h-5 w-5" />
                   <h3 className="text-lg font-semibold text-purple-900">
-                    Генератсияи савол бо GEMINI AI
+                    Генератсияи савол бо KIMI AI
                   </h3>
                 </div>
 
@@ -481,30 +610,17 @@ export default function CreateTest() {
                   </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="ai-level">Сатҳ</Label>
-                    <Input
-                      id="ai-level"
-                      value={aiConfig.level}
-                      onChange={(e) =>
-                        setAiConfig({ ...aiConfig, level: e.target.value })
-                      }
-                      className="mt-1"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="ai-difficulty">Душворӣ</Label>
-                    <Input
-                      id="ai-difficulty"
-                      value={aiConfig.difficulty}
-                      onChange={(e) =>
-                        setAiConfig({ ...aiConfig, difficulty: e.target.value })
-                      }
-                      placeholder="Масалан: Осон, Миёна, Душвор"
-                      className="mt-1"
-                    />
-                  </div>
+                <div>
+                  <Label htmlFor="ai-difficulty">Душворӣ</Label>
+                  <Input
+                    id="ai-difficulty"
+                    value={aiConfig.difficulty}
+                    onChange={(e) =>
+                      setAiConfig({ ...aiConfig, difficulty: e.target.value })
+                    }
+                    placeholder="Масалан: Осон, Миёна, Душвор"
+                    className="mt-1"
+                  />
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -573,13 +689,64 @@ export default function CreateTest() {
                   ) : (
                     <>
                       <Sparkles className="mr-2 h-4 w-4" />
-                      Генератсияи савол бо GEMINI AI
+                      Генератсияи савол бо KIMI AI
                     </>
                   )}
                 </Button>
                 <p className="text-xs text-muted-foreground text-center mt-2">
                   Саволҳои сохташуда ба вариантҳои мавҷуда илова карда мешаванд
                 </p>
+
+                {/* Ҳуҷҷат боркунӣ */}
+                <div className="border-t border-blue-200 pt-4 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Upload className="text-purple-600 h-4 w-4" />
+                    <h4 className="font-semibold text-purple-900">
+                      Ё аз ҳуҷҷат (PDF ё Word)
+                    </h4>
+                  </div>
+                  <div>
+                    <Label htmlFor="ai-file">Файл</Label>
+                    <Input
+                      id="ai-file"
+                      type="file"
+                      accept=".pdf,.docx"
+                      onChange={(e) => setAiFile(e.target.files?.[0] || null)}
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="ai-file-desc">
+                      Дастурҳо барои AI (ихтиёрӣ)
+                    </Label>
+                    <Textarea
+                      id="ai-file-desc"
+                      value={fileDescription}
+                      onChange={(e) => setFileDescription(e.target.value)}
+                      placeholder="Масалан: аз саҳифаи 5 то 10 савол тавлид кун"
+                      rows={2}
+                      className="mt-1"
+                    />
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={generateTestFromFile}
+                    disabled={aiLoading || !aiFile}
+                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                  >
+                    {aiLoading ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Дар ҳоли генератсия...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="mr-2 h-4 w-4" />
+                        Аз ҳуҷҷат тавлид кун
+                      </>
+                    )}
+                  </Button>
+                </div>
               </div>
 
               {/* Test Details */}
