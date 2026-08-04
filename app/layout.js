@@ -1,5 +1,18 @@
 import './globals.css'
+import { Outfit, JetBrains_Mono } from 'next/font/google'
 import { Toaster } from 'sonner'
+
+const sans = Outfit({
+    subsets: ['latin', 'latin-ext', 'cyrillic'],
+    variable: '--font-sans',
+    display: 'swap',
+})
+
+const mono = JetBrains_Mono({
+    subsets: ['latin', 'latin-ext', 'cyrillic'],
+    variable: '--font-mono',
+    display: 'swap',
+})
 
 export const metadata = {
     title: 'Платформаи тестӣ',
@@ -16,7 +29,10 @@ export const viewport = {
 export default function RootLayout({ children }) {
     return (
         <html lang="tg" suppressHydrationWarning>
-            <body suppressHydrationWarning>
+            <body
+                className={`${sans.variable} ${mono.variable} antialiased`}
+                suppressHydrationWarning
+            >
                 {children}
                 <Toaster position="top-center" richColors />
             </body>

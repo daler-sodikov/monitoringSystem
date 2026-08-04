@@ -16,7 +16,6 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Plus,
   Trash2,
-  ArrowLeft,
   Sparkles,
   Loader2,
   AlertCircle,
@@ -25,6 +24,7 @@ import {
   WifiOff,
   Upload,
 } from "lucide-react";
+import { AppHeader } from "@/components/app-header";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -442,7 +442,7 @@ export default function CreateTest() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
+    <div className="min-h-dvh bg-background">
       <Dialog open={aiLoading}>
         <DialogContent
           className="sm:max-w-md"
@@ -450,7 +450,7 @@ export default function CreateTest() {
         >
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-purple-600 animate-pulse" />
+              <Sparkles className="h-5 w-5 text-primary animate-pulse" />
               Генератсияи саволҳо бо AI
             </DialogTitle>
             <DialogDescription>
@@ -461,7 +461,7 @@ export default function CreateTest() {
             <div className="relative">
               {/* Stream ochilganda spinner tezlashadi */}
               <Loader2
-                className="h-16 w-16 text-purple-600"
+                className="h-16 w-16 text-primary"
                 style={{
                   animation: "spin linear infinite",
                   animationDuration: streamedText ? "0.75s" : "2.5s",
@@ -469,14 +469,14 @@ export default function CreateTest() {
               />
               <div className="absolute inset-0 flex items-center justify-center">
                 <div className="h-8 w-8 bg-white rounded-full flex items-center justify-center shadow-sm">
-                  <span className="text-xs font-bold text-purple-600">
+                  <span className="text-xs font-bold text-primary">
                     {progressValue}%
                   </span>
                 </div>
               </div>
             </div>
             <div className="text-center space-y-2 w-full">
-              <p className="font-medium text-lg text-purple-900 h-7">
+              <p className="font-medium text-lg text-foreground h-7">
                 {streamDone
                   ? "Маълумот қабул шуд! Омодасозии ниҳоӣ..."
                   : streamedText
@@ -555,14 +555,9 @@ export default function CreateTest() {
         </DialogContent>
       </Dialog>
 
-      <div className="container mx-auto max-w-4xl">
-        <div className="mb-6">
-          <Button variant="outline" onClick={() => router.push("/teacher")}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Бозгашт
-          </Button>
-        </div>
+      <AppHeader title="Сохтани тести нав" backHref="/teacher" />
 
+      <div className="container mx-auto max-w-4xl px-4 py-10">
         <Card>
           <CardHeader>
             <CardTitle>Сохтани тести нав</CardTitle>
@@ -573,10 +568,10 @@ export default function CreateTest() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               {/* AI Configuration */}
-              <div className="p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-lg space-y-4">
+              <div className="p-5 bg-accent/30 border border-primary/25 rounded-xl space-y-4">
                 <div className="flex items-center gap-2 mb-2">
-                  <Sparkles className="text-purple-600 h-5 w-5" />
-                  <h3 className="text-lg font-semibold text-purple-900">
+                  <Sparkles className="text-primary h-5 w-5" />
+                  <h3 className="text-lg font-semibold text-foreground">
                     Генератсияи савол бо KIMI AI
                   </h3>
                 </div>
@@ -679,7 +674,7 @@ export default function CreateTest() {
                   type="button"
                   onClick={generateTest}
                   disabled={aiLoading}
-                  className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                  className="w-full"
                 >
                   {aiLoading ? (
                     <>
@@ -698,10 +693,10 @@ export default function CreateTest() {
                 </p>
 
                 {/* Ҳуҷҷат боркунӣ */}
-                <div className="border-t border-blue-200 pt-4 space-y-3">
+                <div className="border-t border-primary/25 pt-4 space-y-3">
                   <div className="flex items-center gap-2">
-                    <Upload className="text-purple-600 h-4 w-4" />
-                    <h4 className="font-semibold text-purple-900">
+                    <Upload className="text-primary h-4 w-4" />
+                    <h4 className="font-semibold text-foreground">
                       Ё аз ҳуҷҷат (PDF ё Word)
                     </h4>
                   </div>
@@ -732,7 +727,7 @@ export default function CreateTest() {
                     type="button"
                     onClick={generateTestFromFile}
                     disabled={aiLoading || !aiFile}
-                    className="w-full bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-700 hover:to-indigo-700"
+                    className="w-full"
                   >
                     {aiLoading ? (
                       <>
@@ -788,7 +783,7 @@ export default function CreateTest() {
                 </div>
 
                 {testData.variants.map((variant, variantIndex) => (
-                  <Card key={variantIndex} className="border-2">
+                  <Card key={variantIndex} className="border-zinc-200/80">
                     <CardHeader className="pb-3">
                       <div className="flex justify-between items-center">
                         <Input
@@ -829,7 +824,10 @@ export default function CreateTest() {
                         </p>
                       ) : (
                         variant.questions.map((question, questionIndex) => (
-                          <Card key={questionIndex} className="bg-accent/30">
+                          <Card
+                            key={questionIndex}
+                            className="border-zinc-200/80 bg-zinc-50/60"
+                          >
                             <CardContent className="pt-4 space-y-3">
                               <div className="flex justify-between items-start gap-4">
                                 <div className="flex-1 space-y-3">
@@ -854,7 +852,7 @@ export default function CreateTest() {
                                     <div>
                                       <Label>Навъ</Label>
                                       <select
-                                        className="w-full p-2 border rounded-md bg-white"
+                                        className="flex h-10 w-full rounded-lg border border-input bg-white px-3 text-sm shadow-[0_1px_2px_rgba(9,9,11,0.03)] transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/25 focus-visible:border-ring"
                                         value={question.type}
                                         onChange={(e) =>
                                           updateQuestion(

@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AppHeader } from '@/components/app-header';
+import { EmptyState } from '@/components/empty-state';
+import { LoadingScreen } from '@/components/loading-screen';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeftRight, FileText, Check } from 'lucide-react';
 
 export default function TestView() {
   const router = useRouter();
@@ -48,104 +49,120 @@ export default function TestView() {
   }
 
   if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (!test) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg font-medium text-muted-foreground animate-pulse">
-          Дар ҳоли боргузорӣ...
-        </p>
+      <div className="flex min-h-dvh flex-col bg-background">
+        <AppHeader title="Тест" backHref="/teacher" showLogout={false} />
+        <EmptyState icon={FileText} title="Тест ёфт нашуд" />
       </div>
     );
   }
 
-  if (!test) {
-    return <div className="min-h-screen flex items-center justify-center">Тест ёфт нашуд</div>;
-  }
-
   return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-        <div className="container mx-auto max-w-6xl">
-          <div className="mb-6">
-            <Button variant="outline" onClick={() => router.push('/teacher')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Бозгашт ба панели идоракунӣ
-            </Button>
-          </div>
+    <div className="min-h-dvh bg-background">
+      <AppHeader
+        title={test.title}
+        subtitle={test.description || 'Тавсиф нест'}
+        backHref="/teacher"
+      />
 
-          <Card className="mb-6">
-            <CardHeader>
-              <CardTitle>{test.title}</CardTitle>
-              <CardDescription>{test.description || 'Тавсиф нест'}</CardDescription>
-            </CardHeader>
-          </Card>
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-10 md:px-6">
+        <div className="space-y-12">
+          {test.variants?.map((variant, variantIndex) => (
+            <section
+              key={variant._id}
+              className="animate-enter"
+              style={{ '--index': variantIndex }}
+            >
+              {/* Сарлавҳаи вариант */}
+              <div className="mb-5 flex items-baseline gap-4 border-b border-zinc-200/80 pb-4">
+                <span className="font-mono text-sm font-semibold text-primary">
+                  {String(variantIndex + 1).padStart(2, '0')}
+                </span>
+                <h2 className="text-xl font-semibold tracking-tighter">
+                  {variant.name}
+                </h2>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {variant.questions?.length || 0} савол
+                </span>
+              </div>
 
-          <div className="space-y-6">
-            {test.variants?.map((variant, variantIndex) => (
-                <Card key={variant._id}>
-                  <CardHeader>
-                    <CardTitle className="text-xl">{variant.name}</CardTitle>
-                    <CardDescription>
-                      {variant.questions?.length || 0} савол(ҳо)
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      {variant.questions?.map((question, questionIndex) => (
-                          <Card key={question._id} className="bg-accent/30">
-                            <CardContent className="pt-4">
-                              <div className="space-y-3">
-                                <div className="flex justify-between items-start">
-                                  <h4 className="font-semibold">
-                                    Савол {questionIndex + 1}: {question.text}
-                                  </h4>
-                                  <div className="flex gap-2">
-                                    <Badge variant="outline">{question.type.replace('_', ' ')}</Badge>
-                                    <Badge>{question.points} хол(ҳо)</Badge>
-                                  </div>
-                                </div>
+              <div className="space-y-4">
+                {variant.questions?.map((question, questionIndex) => (
+                  <div
+                    key={question._id}
+                    className="flex gap-4 rounded-xl border border-zinc-200/80 bg-white p-5"
+                  >
+                    <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-zinc-100 font-mono text-xs font-semibold text-zinc-600">
+                      {questionIndex + 1}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
+                        <h4 className="font-medium leading-snug">{question.text}</h4>
+                        <div className="flex shrink-0 gap-2">
+                          <Badge variant="secondary" className="uppercase text-[10px]">
+                            {question.type.replace('_', ' ')}
+                          </Badge>
+                          <Badge variant="outline" className="font-mono text-[10px]">
+                            {question.points} хол
+                          </Badge>
+                        </div>
+                      </div>
 
-                                {question.type === 'MULTIPLE_CHOICE' && (
-                                    <div className="space-y-2 ml-4">
-                                      <p className="text-sm font-medium">Интихобҳо:</p>
-                                      {question.options?.map((option, optIndex) => (
-                                          <div key={option._id} className="flex items-center gap-2">
-                                  <span className="text-sm">
-                                    {String.fromCharCode(65 + optIndex)}. {option.text}
-                                  </span>
-                                            {option.isCorrect && (
-                                                <Badge variant="default" className="text-xs">Дуруст</Badge>
-                                            )}
-                                          </div>
-                                      ))}
-                                    </div>
-                                )}
+                      {question.type === 'MULTIPLE_CHOICE' && (
+                        <div className="mt-4 space-y-1.5">
+                          {question.options?.map((option, optIndex) => (
+                            <div
+                              key={option._id}
+                              className={`flex items-center gap-2.5 rounded-md px-2.5 py-1.5 text-sm ${
+                                option.isCorrect ? 'bg-accent text-accent-foreground' : 'text-zinc-600'
+                              }`}
+                            >
+                              <span className="font-mono text-xs font-semibold text-muted-foreground">
+                                {String.fromCharCode(65 + optIndex)}
+                              </span>
+                              <span className={option.isCorrect ? 'font-medium' : ''}>
+                                {option.text}
+                              </span>
+                              {option.isCorrect && (
+                                <Check className="ml-auto h-3.5 w-3.5 text-primary" strokeWidth={2} />
+                              )}
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
-                                {question.type === 'MATCHING' && (
-                                    <div className="space-y-2 ml-4">
-                                      <p className="text-sm font-medium">Ҷуфтҳо:</p>
-                                      {question.pairs?.map((pair, pairIndex) => (
-                                          <div key={pair._id} className="text-sm">
-                                            {pairIndex + 1}. {pair.left} ↔ {pair.right}
-                                          </div>
-                                      ))}
-                                    </div>
-                                )}
+                      {question.type === 'MATCHING' && (
+                        <div className="mt-4 space-y-1.5">
+                          {question.pairs?.map((pair, pairIndex) => (
+                            <div key={pair._id} className="flex items-center gap-3 px-2.5 py-1.5 text-sm">
+                              <span className="font-mono text-xs font-semibold text-muted-foreground">
+                                {pairIndex + 1}
+                              </span>
+                              <span className="font-medium">{pair.left}</span>
+                              <ArrowLeftRight className="h-3.5 w-3.5 text-muted-foreground" strokeWidth={1.5} />
+                              <span className="text-zinc-600">{pair.right}</span>
+                            </div>
+                          ))}
+                        </div>
+                      )}
 
-                                {question.type === 'OPEN' && (
-                                    <p className="text-sm text-muted-foreground ml-4 italic">
-                                      Саволи кушод (ҷавоби матнӣ лозим аст)
-                                    </p>
-                                )}
-                              </div>
-                            </CardContent>
-                          </Card>
-                      ))}
+                      {question.type === 'OPEN' && (
+                        <p className="mt-3 text-sm italic text-muted-foreground">
+                          Саволи кушод (ҷавоби матнӣ лозим аст)
+                        </p>
+                      )}
                     </div>
-                  </CardContent>
-                </Card>
-            ))}
-          </div>
+                  </div>
+                ))}
+              </div>
+            </section>
+          ))}
         </div>
-      </div>
+      </main>
+    </div>
   );
 }

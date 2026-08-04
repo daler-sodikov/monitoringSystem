@@ -3,13 +3,23 @@
 import { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
+import { AppHeader } from '@/components/app-header';
+import { EmptyState } from '@/components/empty-state';
+import { LoadingScreen } from '@/components/loading-screen';
 import { toast } from 'sonner';
-import { ArrowRight, RefreshCw, Check } from 'lucide-react';
+import {
+  ArrowRight,
+  RefreshCw,
+  X,
+  DoorClosed,
+  DoorOpen,
+  Send,
+} from 'lucide-react';
 
 export default function RoomAccess() {
   const params = useParams();
@@ -235,178 +245,201 @@ export default function RoomAccess() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <div className="text-lg">Боршавӣ...</div>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
   if (!room) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <Card>
-          <CardHeader>
-            <CardTitle>Ҳуҷра ёфт нашуд</CardTitle>
-            <CardDescription>Ҳуҷрае, ки ҷустуҷӯ мекунед, вуҷуд надорад.</CardDescription>
-          </CardHeader>
-        </Card>
+      <div className="min-h-dvh bg-background">
+        <EmptyState
+          icon={DoorClosed}
+          title="Ҳуҷра ёфт нашуд"
+          description="Ҳуҷрае, ки ҷустуҷӯ мекунед, вуҷуд надорад"
+          className="pt-32"
+        />
       </div>
     );
   }
 
   if (showLogin) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
-        <Card className="w-full max-w-md">
-          <CardHeader>
-            <CardTitle>{room.name}</CardTitle>
-            <CardDescription>Барои оғози тест номи худро ворид кунед</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleStudentLogin} className="space-y-4">
-              <div>
-                <Label htmlFor="name">Номи шумо</Label>
-                <Input
-                  id="name"
-                  value={studentName}
-                  onChange={(e) => setStudentName(e.target.value)}
-                  placeholder="Номи пурраи худро ворид кунед"
-                  required
-                />
-              </div>
-              <Button type="submit" className="w-full">
-                Оғози тест
-              </Button>
-            </form>
-          </CardContent>
-        </Card>
+      <div className="flex min-h-dvh items-center justify-center bg-background px-4">
+        <div className="w-full max-w-sm">
+          <div className="animate-enter" style={{ '--index': 0 }}>
+            <Badge variant="secondary" className="font-mono tracking-[0.2em]">
+              {roomId}
+            </Badge>
+            <h1 className="mt-3 text-2xl font-semibold tracking-tighter">
+              {room.name}
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Барои оғози тест номи худро ворид кунед
+            </p>
+          </div>
+          <form onSubmit={handleStudentLogin} className="animate-enter mt-6 space-y-4" style={{ '--index': 1 }}>
+            <div className="space-y-2">
+              <Label htmlFor="name">Номи шумо</Label>
+              <Input
+                id="name"
+                value={studentName}
+                onChange={(e) => setStudentName(e.target.value)}
+                placeholder="Номи пурраи худро ворид кунед"
+                required
+              />
+            </div>
+            <Button type="submit" className="w-full" size="lg">
+              Оғози тест
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </form>
+        </div>
       </div>
     );
   }
 
   if (room.status === 'CLOSED') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-        <div className="container mx-auto max-w-2xl">
-          <Card>
-            <CardHeader>
-              <div className="space-y-2">
-                <div className="flex items-center gap-3">
-                  <CardTitle>{room.name}</CardTitle>
-                  <Badge variant="secondary">ПЎШИДА</Badge>
-                </div>
-                <CardDescription>Ин ҳуҷраи тест пӯшида шудааст</CardDescription>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {result ? (
-                <div className="space-y-4">
-                  <div className="text-center py-8 space-y-4">
-                    <h2 className="text-4xl font-bold">Натиҷаи шумо</h2>
-                    <div className="flex justify-center gap-8 text-center">
-                      <div>
-                        <p className="text-3xl font-bold text-primary">{result.score}</p>
-                        <p className="text-sm text-muted-foreground">Хол</p>
-                      </div>
-                      <div>
-                        <p className="text-3xl font-bold">{result.totalPoints}</p>
-                        <p className="text-sm text-muted-foreground">Ҳамагӣ холҳо</p>
-                      </div>
-                      <div>
-                        <p className="text-3xl font-bold text-green-600">{result.percentage}%</p>
-                        <p className="text-sm text-muted-foreground">Фоиз</p>
-                      </div>
-                    </div>
-                    <Badge
-                      variant={result.percentage >= 60 ? 'default' : 'destructive'}
-                      className="text-lg px-4 py-2"
-                    >
-                      {result.percentage >= 60 ? 'Гузашт' : 'Нагузашт'}
-                    </Badge>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-center py-8 text-muted-foreground">
-                  Ҳанӯз натиҷа дастрас нест. Лутфан ба муаллими худ муроҷиат кунед.
+      <div className="min-h-dvh bg-background">
+        <AppHeader title={room.name} subtitle="Ин ҳуҷраи тест пӯшида шудааст" showLogout={false} />
+        <main className="mx-auto w-full max-w-[1200px] px-4 py-10 md:px-6">
+          {result ? (
+            <div className="grid gap-10 lg:grid-cols-3">
+              <div className="animate-enter lg:col-span-1" style={{ '--index': 0 }}>
+                <p className="font-mono text-7xl font-semibold tracking-tighter">
+                  {result.percentage}
+                  <span className="text-3xl text-muted-foreground">%</span>
                 </p>
-              )}
-            </CardContent>
-          </Card>
-        </div>
+                <Badge
+                  variant={result.percentage >= 60 ? 'default' : 'destructive'}
+                  className="mt-4"
+                >
+                  {result.percentage >= 60 ? 'Гузашт' : 'Нагузашт'}
+                </Badge>
+              </div>
+              <div className="animate-enter space-y-0 border-l-2 border-zinc-200/80 lg:col-span-2" style={{ '--index': 1 }}>
+                {[
+                  { label: 'Холҳои гирифташуда', value: result.score },
+                  { label: 'Ҳамагӣ холҳо', value: result.totalPoints },
+                  { label: 'Статуси ҳуҷра', value: 'Пӯшида' },
+                ].map((row, i) => (
+                  <div key={row.label} className="relative flex items-baseline justify-between pb-6 pl-8 last:pb-0">
+                    <span className="absolute -left-[5px] top-2 h-2 w-2 rounded-full bg-zinc-300" />
+                    <span className="text-sm text-muted-foreground">{row.label}</span>
+                    <span className="font-mono text-2xl font-semibold">{row.value}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <EmptyState
+              icon={DoorClosed}
+              title="Ҳанӯз натиҷа дастрас нест"
+              description="Лутфан ба муаллими худ муроҷиат кунед"
+            />
+          )}
+        </main>
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-      <div className="container mx-auto max-w-4xl">
-        <Card className="mb-6">
-          <CardHeader>
-            <div className="flex justify-between items-start">
-              <div>
-                <CardTitle>{room.name}</CardTitle>
-                <CardDescription>Хуш омадед, {user?.name}</CardDescription>
-              </div>
-              <Badge variant="default">КУШОДА</Badge>
-            </div>
-          </CardHeader>
-        </Card>
+  const answeredCount = Object.keys(answers).length;
 
+  return (
+    <div className="min-h-dvh bg-background pb-28">
+      <AppHeader
+        title={room.name}
+        subtitle={`Хуш омадед, ${user?.name}`}
+        showLogout={false}
+        actions={
+          <Badge variant="default" className="gap-1.5">
+            <span className="breathing-dot h-1.5 w-1.5 rounded-full bg-white/90" />
+            КУШОДА
+          </Badge>
+        }
+      />
+
+      <main className="mx-auto w-full max-w-[860px] px-4 py-10">
         <div className="space-y-6">
           {questions.map((question, index) => (
-            <Card key={question._id}>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div>
-                    <CardTitle className="text-lg">
-                      Савол {index + 1} ({question.points} {question.points === 1 ? 'хол' : 'холҳо'})
-                    </CardTitle>
-                    <CardDescription>{question.text}</CardDescription>
-                  </div>
+            <div
+              key={question._id}
+              className="animate-enter rounded-xl border border-zinc-200/80 bg-white p-5 md:p-6"
+              style={{ '--index': index }}
+            >
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2.5">
+                  <span className="flex h-7 w-7 items-center justify-center rounded-md bg-zinc-100 font-mono text-xs font-semibold text-zinc-600">
+                    {index + 1}
+                  </span>
+                  <Badge variant="secondary" className="uppercase text-[10px]">
+                    {question.type.replace('_', ' ')}
+                  </Badge>
                 </div>
-              </CardHeader>
-              <CardContent>
+                <span className="font-mono text-xs text-muted-foreground">
+                  {question.points} {question.points === 1 ? 'хол' : 'холҳо'}
+                </span>
+              </div>
+
+              <p className="mt-3 text-base font-medium leading-snug">{question.text}</p>
+
+              <div className="mt-5">
                 {question.type === 'MULTIPLE_CHOICE' && (
-                  <div className="space-y-2">
-                    {question.options?.map((option) => (
-                      <label key={option._id} className="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-accent/50 transition-colors">
-                        <input
-                          type="radio"
-                          name={`question-${question._id}`}
-                          value={option._id}
-                          checked={answers[question._id] === option._id}
-                          onChange={(e) => handleAnswerChange(question._id, e.target.value)}
-                          disabled={submitted}
-                          className="w-4 h-4"
-                        />
-                        <span>{option.text}</span>
-                      </label>
-                    ))}
+                  <div className="grid gap-2">
+                    {question.options?.map((option) => {
+                      const selected = answers[question._id] === option._id;
+                      return (
+                        <label
+                          key={option._id}
+                          className={`flex cursor-pointer items-center gap-3 rounded-lg border p-3.5 text-sm transition-all duration-200 ${
+                            selected
+                              ? 'border-primary/50 bg-accent text-accent-foreground'
+                              : 'border-zinc-200/80 hover:border-zinc-300 hover:bg-zinc-50'
+                          } ${submitted ? 'cursor-not-allowed opacity-80' : ''}`}
+                        >
+                          <input
+                            type="radio"
+                            name={`question-${question._id}`}
+                            value={option._id}
+                            checked={selected}
+                            onChange={(e) => handleAnswerChange(question._id, e.target.value)}
+                            disabled={submitted}
+                            className="sr-only"
+                          />
+                          <span
+                            className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+                              selected ? 'border-primary' : 'border-zinc-300'
+                            }`}
+                          >
+                            {selected && <span className="h-2 w-2 rounded-full bg-primary" />}
+                          </span>
+                          <span>{option.text}</span>
+                        </label>
+                      );
+                    })}
                   </div>
                 )}
 
                 {question.type === 'MATCHING' && (
-                  <div className="space-y-6">
-                    {/* Header with reset button */}
+                  <div className="space-y-5">
                     <div className="flex justify-end">
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
                         onClick={() => resetMatches(question._id)}
                         disabled={submitted}
-                        className="gap-2"
+                        className="text-muted-foreground"
                       >
-                        <RefreshCw className="h-4 w-4" />
+                        <RefreshCw className="h-3.5 w-3.5" />
                         Тоза кардан
                       </Button>
                     </div>
 
-                    {/* Matching interface */}
-                    <div className="grid grid-cols-2 gap-8">
+                    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-8">
                       {/* Left column */}
-                      <div className="space-y-3">
-                        <h3 className="font-semibold text-blue-700 mb-2">Элементҳои чап</h3>
+                      <div className="space-y-2.5">
+                        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                          Чап
+                        </h3>
                         {question.lefts?.map((left) => {
                           const matchedRightId = getMatchedRightId(question._id, left.id);
                           const isSelected = selectedLeft === left.id;
@@ -416,23 +449,22 @@ export default function RoomAccess() {
                               key={left.id}
                               onClick={() => !submitted && !matchedRightId && setSelectedLeft(left.id)}
                               className={`
-                                p-4 border-2 rounded-lg transition-all cursor-pointer
+                                rounded-lg border p-3.5 text-sm transition-all duration-200
                                 ${matchedRightId
-                                  ? 'border-green-500 bg-green-50'
+                                  ? 'border-primary/40 bg-accent text-accent-foreground'
                                   : isSelected
-                                    ? 'border-blue-500 bg-blue-50 shadow-md'
-                                    : 'border-gray-200 hover:border-blue-300 hover:bg-blue-50/50'
+                                    ? 'border-primary/60 bg-accent/60 ring-1 ring-primary/30 cursor-pointer'
+                                    : 'border-zinc-200/80 hover:border-zinc-300 hover:bg-zinc-50 cursor-pointer'
                                 }
                                 ${submitted && 'opacity-75 cursor-not-allowed'}
                               `}
                             >
-                              <div className="flex justify-between items-center">
+                              <div className="flex items-center justify-between gap-2">
                                 <span className="font-medium">{left.text}</span>
                                 {matchedRightId && (
-                                  <Badge variant="outline" className="bg-green-100">
-                                    <Check className="h-3 w-3 mr-1" />
-                                    Паваст шуд
-                                  </Badge>
+                                  <span className="text-[10px] font-semibold uppercase tracking-wide text-primary">
+                                    Пайваст шуд
+                                  </span>
                                 )}
                               </div>
                             </div>
@@ -441,8 +473,10 @@ export default function RoomAccess() {
                       </div>
 
                       {/* Right column */}
-                      <div className="space-y-3">
-                        <h3 className="font-semibold text-green-700 mb-2">Элементҳои рост</h3>
+                      <div className="space-y-2.5">
+                        <h3 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                          Рост
+                        </h3>
                         {question.rights?.map((right) => {
                           const isMatched = isRightMatched(question._id, right.id);
                           const isAvailable = !isMatched && selectedLeft;
@@ -457,48 +491,49 @@ export default function RoomAccess() {
                                 }
                               }}
                               className={`
-                                p-4 border-2 rounded-lg transition-all
+                                rounded-lg border p-3.5 text-sm transition-all duration-200
                                 ${isMatched
-                                  ? 'border-gray-200 bg-gray-50 opacity-50 cursor-not-allowed'
+                                  ? 'border-zinc-200/60 bg-zinc-50 text-muted-foreground/70'
                                   : isAvailable
-                                    ? 'border-blue-500 bg-blue-50 cursor-pointer hover:shadow-md'
-                                    : 'border-gray-200 cursor-default'
+                                    ? 'border-primary/50 bg-accent cursor-pointer hover:ring-1 hover:ring-primary/30'
+                                    : 'border-dashed border-zinc-300 text-muted-foreground'
                                 }
                               `}
                             >
-                              <div className="flex items-center gap-2">
-                                {isAvailable && (
-                                  <ArrowRight className="h-4 w-4 text-blue-500" />
-                                )}
-                                <span>{right.text}</span>
-                              </div>
+                              <span>{right.text}</span>
                             </div>
                           );
                         })}
                       </div>
                     </div>
 
-                    {/* Current matches summary */}
                     {answers[question._id]?.length > 0 && (
-                      <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-                        <h4 className="font-semibold mb-3">Пайвастҳои ҷорӣ:</h4>
-                        <div className="space-y-2">
+                      <div className="rounded-lg border border-zinc-200/80 bg-zinc-50/60 p-3.5">
+                        <h4 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                          Пайвастҳои ҷорӣ
+                        </h4>
+                        <div className="mt-2.5 space-y-1.5">
                           {answers[question._id].map((match, idx) => {
                             const leftText = question.lefts?.find(l => l.id === match.leftId)?.text;
                             const rightText = question.rights?.find(r => r.id === match.rightId)?.text;
                             return (
-                              <div key={idx} className="flex items-center gap-3 text-sm">
-                                <Badge variant="outline" className="bg-blue-100">{leftText}</Badge>
-                                <ArrowRight className="h-3 w-3" />
-                                <Badge variant="outline" className="bg-green-100">{rightText}</Badge>
+                              <div key={idx} className="flex items-center gap-2.5 text-sm">
+                                <span className="rounded-md bg-white px-2 py-1 font-medium shadow-[0_1px_2px_rgba(9,9,11,0.04)]">
+                                  {leftText}
+                                </span>
+                                <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                                <span className="rounded-md bg-accent px-2 py-1 font-medium text-accent-foreground">
+                                  {rightText}
+                                </span>
                                 {!submitted && (
                                   <Button
                                     variant="ghost"
-                                    size="sm"
+                                    size="icon"
                                     onClick={() => removeMatch(question._id, match.leftId)}
-                                    className="h-6 px-2 text-red-500 hover:text-red-700"
+                                    className="ml-auto h-6 w-6 text-muted-foreground hover:text-destructive"
+                                    aria-label="Хориҷ кардан"
                                   >
-                                    ✕
+                                    <X className="h-3.5 w-3.5" />
                                   </Button>
                                 )}
                               </div>
@@ -508,12 +543,11 @@ export default function RoomAccess() {
                       </div>
                     )}
 
-                    {/* Instructions */}
-                    <p className="text-sm text-muted-foreground text-center mt-4">
-                      1. Элементи чапро клик кунед<br />
-                      2. Элементи ростро клик кунед, то пайваст кунед<br />
-                      3. Барои нест кардан, дар пайвастҳои ҷорӣ тугмаи ✕-ро пахш кунед
-                    </p>
+                    <ol className="list-decimal space-y-1 pl-5 font-mono text-xs leading-relaxed text-muted-foreground">
+                      <li>Элементи чапро клик кунед</li>
+                      <li>Элементи ростро клик кунед, то пайваст кунед</li>
+                      <li>Барои нест кардан, нишонаи X-ро дар пайвастҳо пахш кунед</li>
+                    </ol>
                   </div>
                 )}
 
@@ -526,32 +560,35 @@ export default function RoomAccess() {
                     disabled={submitted}
                   />
                 )}
-              </CardContent>
-            </Card>
+              </div>
+            </div>
           ))}
+        </div>
+      </main>
 
-          {!submitted && (
-            <Card>
-              <CardContent className="pt-6">
-                <Button onClick={handleSubmit} className="w-full" size="lg">
-                  Ирсоли ҷавобҳо
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-
-          {submitted && (
-            <Card className="border-green-500">
-              <CardContent className="pt-6">
-                <div className="text-center space-y-2">
-                  <p className="text-lg font-semibold text-green-600">Ҷавобҳо ирсол шуданд!</p>
-                  <p className="text-muted-foreground">
-                    Ҷавобҳои шумо сабт карда шуданд
-                  </p>
-
-                </div>
-              </CardContent>
-            </Card>
+      {/* Панели ирсол */}
+      <div className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200/80 bg-background/90 backdrop-blur-md">
+        <div className="mx-auto flex h-20 max-w-[860px] items-center gap-4 px-4">
+          {submitted ? (
+            <div className="flex w-full items-center gap-3">
+              <span className="breathing-dot h-2 w-2 rounded-full bg-primary" />
+              <div>
+                <p className="text-sm font-semibold">Ҷавобҳо ирсол шуданд</p>
+                <p className="text-xs text-muted-foreground">
+                  Ҷавобҳои шумо сабт карда шуданд
+                </p>
+              </div>
+            </div>
+          ) : (
+            <>
+              <span className="font-mono text-sm text-muted-foreground">
+                {answeredCount}/{questions.length} ҷавоб дода шуд
+              </span>
+              <Button onClick={handleSubmit} className="ml-auto" size="lg">
+                <Send className="h-4 w-4" />
+                Ирсоли ҷавобҳо
+              </Button>
+            </>
           )}
         </div>
       </div>

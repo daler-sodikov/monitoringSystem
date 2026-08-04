@@ -1,6 +1,18 @@
-# Memory — Kimi AI provider and test generation
+# Memory — Kimi AI provider, test generation, UI redesign
 
-Last updated: 2026-08-04
+Last updated: 2026-08-04 (evening)
+
+## UI redesign (design skill: variance 8, motion 6, density 4)
+
+- Full UX/UI rewrite of all 10 pages. System: zinc off-white base (#fafafa), ONE accent (deep emerald hsl(158 74% 30%)), no gradients (old blue/indigo/purple/pink gradients all removed), no glows, no pure black (zinc-950), hairline borders, diffusion shadows.
+- Fonts: Outfit (sans) + JetBrains Mono (mono for codes/numbers), via next/font/google with cyrillic subsets, CSS vars `--font-sans`/`--font-mono` wired in tailwind.config.js fontFamily.
+- Motion is pure CSS: `animate-enter` staggered cascade (child sets `style={{'--index': n}}`), `breathing-dot` status pulse, tactile button press (in button.jsx). No framer-motion.
+- New shared components in `components/`: `logo-mark.jsx`, `app-header.jsx` (sticky header, owns logout), `empty-state.jsx`, `loading-screen.jsx` (skeleton based).
+- shadcn primitives restyled in place: button.jsx (rounded-lg, tactile, emerald), card.jsx, badge.jsx (soft pill variants), input.jsx, textarea.jsx, dialog.jsx (zinc overlay, rounded-2xl), skeleton.jsx.
+- Pages keep ALL fetch/state/handler logic identical; only JSX classes/structure changed. Student room page: sticky submit bar with answered count, custom radio rows, X icon replaces "✕", ArrowLeftRight replaces "↔". Login page: dead signup code dropped, split screen (dark zinc-950 brand panel left / form right).
+- Verified: `next build` green, `next start` smoke test shows new classes + font vars.
+
+
 
 ## Standing preferences
 

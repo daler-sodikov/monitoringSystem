@@ -3,9 +3,11 @@
 import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AppHeader } from '@/components/app-header';
+import { EmptyState } from '@/components/empty-state';
+import { LoadingScreen } from '@/components/loading-screen';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeft, Copy, X, BarChart3, ChevronRight, Loader2 } from 'lucide-react';
+import { Copy, X, BarChart3, ChevronRight, Users, Link2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function RoomView() {
@@ -92,152 +94,146 @@ export default function RoomView() {
   }
 
   if (loading) {
+    return <LoadingScreen />;
+  }
+
+  if (!room) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg font-medium text-muted-foreground animate-pulse">
-          Дар ҳоли боргузорӣ...
-        </p>
+      <div className="flex min-h-dvh flex-col bg-background">
+        <AppHeader title="Ҳуҷра" backHref="/teacher" showLogout={false} />
+        <EmptyState
+          icon={Users}
+          title="Ҳуҷра ёфт нашуд"
+          description="Ҳуҷрае, ки ҷустуҷӯ мекунед, вуҷуд надорад"
+        />
       </div>
     );
   }
 
-  if (!room) {
-    return <div className="min-h-screen flex items-center justify-center">Ҳуҷра ёфт нашуд</div>;
-  }
-
   return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-6">
-        <div className="container mx-auto max-w-6xl">
-          <div className="mb-6">
-            <Button variant="outline" onClick={() => router.push('/teacher')}>
-              <ArrowLeft className="mr-2 h-4 w-4" />
-              Бозгашт ба панели идоракунӣ
+    <div className="min-h-dvh bg-background">
+      <AppHeader
+        title={room.name}
+        subtitle={room.test?.title}
+        backHref="/teacher"
+        actions={
+          room.status === 'OPEN' ? (
+            <Button variant="destructive" size="sm" onClick={handleCloseRoom}>
+              <X className="h-4 w-4" />
+              Пӯшидани ҳуҷра
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              onClick={() => router.push(`/teacher/rooms/${roomId}/results`)}
+            >
+              <BarChart3 className="h-4 w-4" />
+              Натиҷаҳо
+            </Button>
+          )
+        }
+      />
+
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-10 md:px-6">
+        {/* Коди ҳуҷра */}
+        <div
+          className="animate-enter flex flex-col gap-6 border-b border-zinc-200/80 pb-10 md:flex-row md:items-center"
+          style={{ '--index': 0 }}
+        >
+          <div>
+            <div className="mb-2 flex items-center gap-3">
+              <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Коди ҳӯҷра
+              </span>
+              <Badge variant={room.status === 'OPEN' ? 'default' : 'secondary'}>
+                {room.status === 'OPEN' ? 'КУШОДА' : 'ПҮШИДА'}
+              </Badge>
+            </div>
+            <p className="font-mono text-5xl font-bold tracking-[0.3em] text-zinc-900">
+              {roomId}
+            </p>
+          </div>
+          <div className="max-w-sm text-sm leading-relaxed text-muted-foreground md:ml-auto">
+            Ин кодро бо донишҷӯён мубодила кунед, то онҳо ба сайт ворид шаванд
+            ва кодро ворид кунанд.
+          </div>
+          <div className="flex gap-2">
+            <Button variant="outline" onClick={copyRoomCode}>
+              <Copy className="h-4 w-4" />
+              Код
+            </Button>
+            <Button variant="outline" onClick={copyRoomLink}>
+              <Link2 className="h-4 w-4" />
+              Истинод
             </Button>
           </div>
-
-          <div className="grid gap-6">
-            {/* Room Info */}
-            <Card>
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-3">
-                      <CardTitle>{room.name}</CardTitle>
-                      <Badge variant={room.status === 'OPEN' ? 'default' : 'secondary'}>
-                        {room.status === 'OPEN' ? 'КУШОДА' : 'ПЎШИДА'}
-                      </Badge>
-                    </div>
-                    <CardDescription>{room.test?.title}</CardDescription>
-                  </div>
-                  <div className="flex gap-2">
-                    {room.status === 'OPEN' ? (
-                        <>
-                          <Button variant="destructive" onClick={handleCloseRoom}>
-                            <X className="mr-2 h-4 w-4" />
-                            Пӯшидани ҳуҷра
-                          </Button>
-                        </>
-                    ) : (
-                        <Button variant="default" onClick={() => router.push(`/teacher/rooms/${roomId}/results`)}>
-                          <BarChart3 className="mr-2 h-4 w-4" />
-                          Натиҷаҳои муфассал
-                        </Button>
-                    )}
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {/* Big room code display */}
-                  <div className="flex items-center gap-4 p-4 bg-primary/5 border border-primary/20 rounded-xl">
-                    <div className="text-center">
-                      <p className="text-xs text-muted-foreground mb-1">Коди ҳӯҷра</p>
-                      <span className="text-5xl font-black tracking-[0.3em] text-primary">{roomId}</span>
-                    </div>
-                    <div className="flex-1 text-sm text-muted-foreground">
-                      Ин кодро бо донишҷӯён мубодила кунед, то онҳо ба сайт ворид шаванд ва кодро ворид кунанд.
-                    </div>
-                    <Button size="sm" variant="outline" onClick={copyRoomCode}>
-                      <Copy className="mr-2 h-4 w-4" />
-                      Нусха
-                    </Button>
-                  </div>
-                  <p className="text-xs text-muted-foreground">
-                    Истинод: 
-                    <code className="bg-muted px-2 py-0.5 rounded ml-2">{typeof window !== 'undefined' ? window.location.origin : ''}/room/{roomId}</code>
-                    <Button size="sm" variant="ghost" className="ml-2 h-6 px-2" onClick={copyRoomLink}>
-                      <Copy className="h-3 w-3" />
-                    </Button>
-                  </p>
-                  {room.status !== 'OPEN' && (
-                    <p className="text-sm text-muted-foreground">
-                      Ин ҳӯҷра пӯшида шудааст. Донишҷӯён дигар наметавонанд ҷавобҳои худро ирсол кунанд.
-                    </p>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Results */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Натиҷаҳо</CardTitle>
-                <CardDescription>
-                  {results.length === 0
-                      ? 'Ҳанӯз натиҷае нест'
-                      : `${results.length} донишҷӯ(ён) иштирок карданд`}
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                {results.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-8">
-                      {room.status === 'OPEN'
-                          ? 'Интизори ҳамроҳшавии донишҷӯён ва ирсоли ҷавобҳо'
-                          : 'Ҳеҷ донишҷӯе ин тестро супорида нашудааст'}
-                    </p>
-                ) : (
-                    <div className="overflow-x-auto">
-                      <table className="w-full">
-                        <thead>
-                        <tr className="border-b">
-                          <th className="text-left p-3 font-semibold">Донишҷӯ</th>
-                          <th className="text-center p-3 font-semibold">Хол</th>
-                          <th className="text-center p-3 font-semibold">Ҳамагӣ холҳо</th>
-                          <th className="text-center p-3 font-semibold">Фоиз</th>
-                          <th className="text-right p-3 font-semibold"></th>
-                        </tr>
-                        </thead>
-                        <tbody>
-                        {results.map((result) => (
-                            <tr key={result._id} className="border-b hover:bg-accent/50">
-                              <td className="p-3">{result.student?.name || 'Номаълум'}</td>
-                              <td className="text-center p-3 font-medium">{result.score}</td>
-                              <td className="text-center p-3">{result.totalPoints}</td>
-                              <td className="text-center p-3">
-                                <Badge variant={result.percentage >= 60 ? 'default' : 'destructive'}>
-                                  {result.percentage}%
-                                </Badge>
-                              </td>
-                              <td className="text-right p-3">
-                                <Button 
-                                  variant="ghost" 
-                                  size="sm" 
-                                  onClick={() => router.push(`/teacher/rooms/${roomId}/results/${result.studentId}`)}
-                                >
-                                  <ChevronRight className="h-4 w-4" />
-                                </Button>
-                              </td>
-                            </tr>
-                        ))}
-                        </tbody>
-                      </table>
-                    </div>
-                )}
-              </CardContent>
-            </Card>
-          </div>
         </div>
-      </div>
+
+        {room.status !== 'OPEN' && (
+          <p className="animate-enter mt-4 text-sm text-muted-foreground" style={{ '--index': 1 }}>
+            Ин ҳӯҷра пӯшида шудааст. Донишҷӯён дигар наметавонанд ҷавобҳои худро
+            ирсол кунанд.
+          </p>
+        )}
+
+        {/* Натиҷаҳо */}
+        <section className="animate-enter mt-10" style={{ '--index': 2 }}>
+          <div className="mb-4 flex items-baseline gap-3">
+            <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Натиҷаҳо
+            </h2>
+            {results.length > 0 && (
+              <span className="font-mono text-xs text-muted-foreground">
+                {results.length} донишҷӯ
+              </span>
+            )}
+          </div>
+
+          {results.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-zinc-300 bg-white/60">
+              <EmptyState
+                icon={Users}
+                title={room.status === 'OPEN' ? 'Интизори донишҷӯён' : 'Натиҷа нест'}
+                description={
+                  room.status === 'OPEN'
+                    ? 'Кодро мубодила кунед ва интизори ҳамроҳшавии донишҷӯён бошед'
+                    : 'Ҳеҷ донишҷӯе ин тестро супорида нашудааст'
+                }
+              />
+            </div>
+          ) : (
+            <div className="divide-y divide-zinc-200/70 rounded-xl border border-zinc-200/80 bg-white">
+              {results.map((result, i) => (
+                <button
+                  key={result._id}
+                  onClick={() =>
+                    router.push(`/teacher/rooms/${roomId}/results/${result.studentId}`)
+                  }
+                  className="animate-enter flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-zinc-50"
+                  style={{ '--index': 3 + i }}
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold uppercase text-zinc-700">
+                    {result.student?.name?.charAt(0) || '?'}
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {result.student?.name || 'Номаълум'}
+                  </span>
+                  <span className="font-mono text-sm text-muted-foreground">
+                    {result.score}/{result.totalPoints}
+                  </span>
+                  <Badge
+                    variant={result.percentage >= 60 ? 'default' : 'destructive'}
+                    className="min-w-[52px] justify-center font-mono"
+                  >
+                    {result.percentage}%
+                  </Badge>
+                  <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                </button>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
+    </div>
   );
 }

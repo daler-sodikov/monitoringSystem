@@ -2,9 +2,34 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { LogOut } from 'lucide-react';
+import { AppHeader } from '@/components/app-header';
+import { LoadingScreen } from '@/components/loading-screen';
+import { Card, CardContent } from '@/components/ui/card';
+import { Info, MousePointerClick, Link2, Send, CheckCircle2 } from 'lucide-react';
+
+const steps = [
+  {
+    icon: Link2,
+    title: 'Истиноди ҳуҷраро гиред',
+    text: 'Муаллими шумо истиноди ҳуҷраро мубодила мекунад. Он чунин хоҳад буд:',
+    code: 'https://your-domain.com/room/123456789',
+  },
+  {
+    icon: MousePointerClick,
+    title: 'Истинодро клик кунед',
+    text: 'Ба истиноде, ки муаллими шумо додааст, клик кунед. Агар шумо ворид нашуда бошед, номи худро ворид кардан лозим мешавад.',
+  },
+  {
+    icon: Send,
+    title: 'Тестро супоред',
+    text: 'Ба ҳамаи саволҳо ҷавоб диҳед ва пас аз анҷом "Ирсоли ҷавобҳо"-ро клик кунед. Шумо метавонед ҷавобҳои худро то лаҳзаи пӯшидани ҳуҷра тавассути муаллим тағйир диҳед.',
+  },
+  {
+    icon: CheckCircle2,
+    title: 'Натиҷаҳоро бинед',
+    text: 'Пас аз пӯшидани ҳуҷра аз ҷониби муаллим, ҷавобҳои шумо автоматикӣ санҷида мешаванд ва шумо метавонед натиҷаҳои худро бубинед.',
+  },
+];
 
 export default function StudentDashboard() {
   const router = useRouter();
@@ -35,76 +60,89 @@ export default function StudentDashboard() {
     }
   }
 
-  async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/');
-  }
-
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Боршавӣ...</div>;
+    return <LoadingScreen />;
   }
 
   return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-100">
-        <div className="container mx-auto p-6">
-          {/* Header */}
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-3xl font-bold">Панели донишҷӯ</h1>
-              <p className="text-muted-foreground">Хуш омадед, {user?.name}</p>
+    <div className="min-h-dvh bg-background">
+      <AppHeader
+        title="Панели донишҷӯ"
+        subtitle={`Хуш омадед, ${user?.name}`}
+        userName={user?.name}
+      />
+
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-10 md:px-6">
+        <div className="animate-enter mb-10" style={{ '--index': 0 }}>
+          <h2 className="text-3xl font-semibold tracking-tighter">
+            Чӣ тавр тест супоридан мумкин аст
+          </h2>
+          <p className="mt-2 max-w-[60ch] text-sm leading-relaxed text-muted-foreground">
+            Барои иштирок дар тест ин чор қадамро иҷро кунед
+          </p>
+        </div>
+
+        <div className="grid gap-10 lg:grid-cols-3">
+          {/* Қадамҳо */}
+          <div className="lg:col-span-2">
+            <div className="space-y-0 border-l-2 border-zinc-200/80">
+              {steps.map((step, i) => (
+                <div
+                  key={step.title}
+                  className="animate-enter relative pb-10 pl-8 last:pb-0"
+                  style={{ '--index': 1 + i }}
+                >
+                  <span className="absolute -left-[11px] top-0 flex h-5 w-5 items-center justify-center rounded-full border-2 border-background bg-primary font-mono text-[10px] font-bold text-primary-foreground">
+                    {i + 1}
+                  </span>
+                  <div className="flex items-center gap-2.5">
+                    <step.icon className="h-4 w-4 text-primary" strokeWidth={1.5} />
+                    <h3 className="font-semibold tracking-tight">{step.title}</h3>
+                  </div>
+                  <p className="mt-2 max-w-[58ch] text-sm leading-relaxed text-muted-foreground">
+                    {step.text}
+                  </p>
+                  {step.code && (
+                    <code className="mt-3 block w-fit rounded-lg border border-zinc-200/80 bg-white px-3 py-2 font-mono text-xs text-zinc-600">
+                      {step.code}
+                    </code>
+                  )}
+                </div>
+              ))}
             </div>
-            <Button variant="outline" onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Баромад
-            </Button>
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Чӣ тавр тест супоридан мумкин аст</CardTitle>
-              <CardDescription>Барои иштирок дар тест ин қадамҳоро иҷро кунед</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <h3 className="font-semibold">Қадами 1: Истиноди ҳуҷраро гиред</h3>
-                <p className="text-sm text-muted-foreground">
-                  Муаллими шумо истиноди ҳуҷраро мубодила мекунад. Он чунин хоҳад буд:
+          {/* Эзоҳи кӯтаҳ */}
+          <div className="animate-enter lg:col-span-1" style={{ '--index': 5 }}>
+            <Card className="border-l-[3px] border-l-primary">
+              <CardContent className="pt-6">
+                <div className="flex items-center gap-2">
+                  <Info className="h-4 w-4 text-primary" strokeWidth={1.5} />
+                  <p className="text-sm font-semibold">Эзоҳ</p>
+                </div>
+                <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
+                  Ҳар як донишҷӯ варианти тасодуфии тестро мегирад. Бо
+                  ростқавлӣ ҷавоб диҳед ва кӯшиши бештари худро кунед!
                 </p>
-                <code className="block bg-muted p-2 rounded text-xs">
-                  https://your-domain.com/room/123456789
-                </code>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold">Қадами 2: Истинодро клик кунед</h3>
-                <p className="text-sm text-muted-foreground">
-                  Ба истиноде, ки муаллими шумо додааст, клик кунед. Агар шумо ворид нашуда бошед, номи худро ворид кардан лозим мешавад.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold">Қадами 3: Тестро супоред</h3>
-                <p className="text-sm text-muted-foreground">
-                  Ба ҳамаи саволҳо ҷавоб диҳед ва пас аз анҷом "Ирсоли ҷавобҳо"-ро клик кунед. Шумо метавонед ҷавобҳои худро то лаҳзаи пӯшидани ҳуҷра тавассути муаллим тағйир диҳед.
-                </p>
-              </div>
-
-              <div className="space-y-2">
-                <h3 className="font-semibold">Қадами 4: Натиҷаҳоро бинед</h3>
-                <p className="text-sm text-muted-foreground">
-                  Пас аз пӯшидани ҳуҷра аз ҷониби муаллим, ҷавобҳои шумо автоматикӣ санҷида мешаванд ва шумо метавонед натиҷаҳои худро бубинед.
-                </p>
-              </div>
-
-              <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-sm font-semibold text-blue-900">Эзоҳ:</p>
-                <p className="text-sm text-blue-800">
-                  Ҳар як донишҷӯ варианти тасодуфии тестро мегирад. Бо ростқавлӣ ҷавоб диҳед ва кӯшиши бештари худро кунед!
-                </p>
-              </div>
-            </CardContent>
-          </Card>
+                <div className="mt-5 space-y-2 border-t border-zinc-200/70 pt-4 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Вариант</span>
+                    <span className="font-medium">Тасодуфӣ</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Таҳрир</span>
+                    <span className="font-medium">То пӯшидани ҳуҷра</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Баҳо</span>
+                    <span className="font-medium">Автоматӣ</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </div>
-      </div>
+      </main>
+    </div>
   );
 }

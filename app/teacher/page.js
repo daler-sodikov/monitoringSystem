@@ -3,15 +3,17 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Plus, LogOut, Trash2, Loader2 } from "lucide-react";
+import { AppHeader } from "@/components/app-header";
+import { EmptyState } from "@/components/empty-state";
+import { LoadingScreen } from "@/components/loading-screen";
+import {
+  Plus,
+  Trash2,
+  FileText,
+  DoorOpen,
+  ChevronRight,
+} from "lucide-react";
 import { toast } from "sonner";
 
 export default function TeacherDashboard() {
@@ -71,11 +73,6 @@ export default function TeacherDashboard() {
     }
   }
 
-  async function handleLogout() {
-    await fetch("/api/auth/logout", { method: "POST" });
-    router.push("/");
-  }
-
   async function deleteTest(testId) {
     if (!confirm("Шумо мутмаин ҳастед, ки ин тестро нест кардан мехоҳед?"))
       return;
@@ -94,163 +91,218 @@ export default function TeacherDashboard() {
   }
 
   if (loading) {
-    return (
-      <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100">
-        <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
-        <p className="text-lg font-medium text-muted-foreground animate-pulse">
-          Дар ҳоли боргузорӣ...
-        </p>
-      </div>
-    );
+    return <LoadingScreen />;
   }
 
+  const openRooms = rooms.filter((room) => room.status === "OPEN").length;
+
+  const stats = [
+    { label: "Тестҳо", value: tests.length },
+    { label: "Синфхонаҳо", value: rooms.length },
+    { label: "Кушода", value: openRooms },
+  ];
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
-      <div className="container mx-auto p-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Панели омӯзгор</h1>
-            <p className="text-muted-foreground">Хуш омадед, {user?.name}</p>
+    <div className="min-h-dvh bg-background">
+      <AppHeader
+        title="Панели омӯзгор"
+        subtitle={`Хуш омадед, ${user?.name}`}
+        userName={user?.name}
+      />
+
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-10 md:px-6">
+        {/* Нишондиҳандаҳо */}
+        <div
+          className="animate-enter mb-10 flex flex-col gap-4 border-b border-zinc-200/80 pb-8 sm:flex-row sm:items-end sm:gap-10"
+          style={{ "--index": 0 }}
+        >
+          {stats.map((stat) => (
+            <div key={stat.label} className="flex items-baseline gap-3">
+              <span className="font-mono text-3xl font-semibold tracking-tight">
+                {stat.value}
+              </span>
+              <span className="text-sm text-muted-foreground">
+                {stat.label}
+              </span>
+            </div>
+          ))}
+          <div className="flex gap-2 sm:ml-auto">
+            <Button
+              variant="outline"
+              onClick={() => router.push("/teacher/tests/create")}
+            >
+              <Plus className="h-4 w-4" />
+              Тест
+            </Button>
+            <Button onClick={() => router.push("/teacher/rooms/create")}>
+              <Plus className="h-4 w-4" />
+              Синфхона
+            </Button>
           </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Баромад
-          </Button>
         </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
-          {/* Tests Section */}
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>Тестҳои ман</CardTitle>
-                  <CardDescription>
-                    Идоракунии китобхонаи тестҳо
-                  </CardDescription>
-                </div>
-                <Button onClick={() => router.push("/teacher/tests/create")}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Сохтани тест
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {tests.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
-                    Тестҳо ҳанӯз нестанд. Аввалин тести худро созед!
-                  </p>
-                ) : (
-                  tests.map((test) => (
-                    <div
-                      key={test._id}
-                      className="border rounded-lg p-4 hover:bg-accent/50 transition-colors"
+        <div className="grid gap-12 lg:grid-cols-5">
+          {/* Тестҳо */}
+          <section
+            className="animate-enter lg:col-span-2"
+            style={{ "--index": 1 }}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Тестҳои ман
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/teacher/tests/create")}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Нав
+              </Button>
+            </div>
+
+            {tests.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-zinc-300 bg-white/60">
+                <EmptyState
+                  icon={FileText}
+                  title="Тестҳо ҳанӯз нестанд"
+                  description="Аввалин тести худро бо даст ё бо ёрии AI созед"
+                  action={
+                    <Button
+                      size="sm"
+                      onClick={() => router.push("/teacher/tests/create")}
                     >
-                      <div className="flex justify-between items-start">
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{test.title}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {test.description}
-                          </p>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              router.push(`/teacher/tests/${test._id}`)
-                            }
-                          >
-                            Дидан
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => deleteTest(test._id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
+                      <Plus className="h-4 w-4" />
+                      Сохтани тест
+                    </Button>
+                  }
+                />
+              </div>
+            ) : (
+              <div className="divide-y divide-zinc-200/70 rounded-xl border border-zinc-200/80 bg-white">
+                {tests.map((test, i) => (
+                  <div
+                    key={test._id}
+                    className="animate-enter group flex items-center gap-3 px-4 py-3.5 transition-colors hover:bg-zinc-50"
+                    style={{ "--index": 2 + i }}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium">{test.title}</p>
+                      {test.description && (
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {test.description}
+                        </p>
+                      )}
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => router.push(`/teacher/tests/${test._id}`)}
+                      className="shrink-0"
+                    >
+                      Дидан
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => deleteTest(test._id)}
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                      aria-label="Нест кардан"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
+          {/* Синфхонаҳо */}
+          <section
+            className="animate-enter lg:col-span-3"
+            style={{ "--index": 2 }}
+          >
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Синфхонаҳои ман
+              </h2>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => router.push("/teacher/rooms/create")}
+              >
+                <Plus className="h-3.5 w-3.5" />
+                Нав
+              </Button>
+            </div>
+
+            {rooms.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-zinc-300 bg-white/60">
+                <EmptyState
+                  icon={DoorOpen}
+                  title="Синфхонаҳо ҳанӯз нестанд"
+                  description="Аз рӯи тест синфхона созед ва кодро бо донишҷӯён мубодила кунед"
+                  action={
+                    <Button
+                      size="sm"
+                      onClick={() => router.push("/teacher/rooms/create")}
+                    >
+                      <Plus className="h-4 w-4" />
+                      Сохтани синфхона
+                    </Button>
+                  }
+                />
+              </div>
+            ) : (
+              <div className="divide-y divide-zinc-200/70 rounded-xl border border-zinc-200/80 bg-white">
+                {rooms.map((room, i) => (
+                  <div
+                    key={room._id}
+                    className="animate-enter group flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-3.5 transition-colors hover:bg-zinc-50"
+                    style={{ "--index": 3 + i }}
+                  >
+                    <div className="flex min-w-0 flex-1 items-center gap-3">
+                      {room.status === "OPEN" ? (
+                        <span className="breathing-dot h-2 w-2 shrink-0 rounded-full bg-primary" />
+                      ) : (
+                        <span className="h-2 w-2 shrink-0 rounded-full bg-zinc-300" />
+                      )}
+                      <div className="min-w-0">
+                        <p className="truncate font-medium">{room.name}</p>
+                        <p className="mt-0.5 truncate text-xs text-muted-foreground">
+                          {room.test?.title}
+                        </p>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Rooms Section */}
-          <Card>
-            <CardHeader>
-              <div className="flex justify-between items-center">
-                <div>
-                  <CardTitle>Синфхонаҳои ман</CardTitle>
-                  <CardDescription>
-                    Синфхонаҳои тестии фаъол ва гузашта
-                  </CardDescription>
-                </div>
-                <Button onClick={() => router.push("/teacher/rooms/create")}>
-                  <Plus className="mr-2 h-4 w-4" />
-                  Сохтани синфхона
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {rooms.length === 0 ? (
-                  <p className="text-muted-foreground text-center py-8">
-                    Синфхонаҳо ҳанӯз нестанд. Аз рӯи тест синфхона созед!
-                  </p>
-                ) : (
-                  rooms.map((room) => (
-                    <div
-                      key={room._id}
-                      className="border rounded-lg p-4 hover:bg-accent/50 transition-colors"
+                    <span className="rounded-md bg-zinc-100 px-2 py-1 font-mono text-xs font-semibold tracking-[0.2em] text-zinc-700">
+                      {room.code}
+                    </span>
+                    <Badge
+                      variant={
+                        room.status === "OPEN" ? "default" : "secondary"
+                      }
                     >
-                      <div className="flex justify-between items-start mb-2">
-                        <div className="flex-1">
-                          <h3 className="font-semibold">{room.name}</h3>
-                          <p className="text-sm text-muted-foreground">
-                            {room.test?.title}
-                          </p>
-                        </div>
-                        <Badge
-                          variant={
-                            room.status === "OPEN" ? "default" : "secondary"
-                          }
-                        >
-                          {room.status === "OPEN" ? "КУШОДА" : "ПУШИДА"}
-                        </Badge>
-                      </div>
-                      <div className="flex items-center justify-between mt-3">
-                        <div className="flex items-center gap-3">
-
-                          <span className="text-sm font-bold tracking-widest bg-primary/10 text-primary px-2 py-0.5 rounded">
-                            {room.code}
-                          </span>
-                        </div>
-                        <div className="flex gap-2">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            onClick={() =>
-                              router.push(`/teacher/rooms/${room.code}`)
-                            }
-                          >
-                            Дидан
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
+                      {room.status === "OPEN" ? "КУШОДА" : "ПҮШИДА"}
+                    </Badge>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="shrink-0"
+                      onClick={() =>
+                        router.push(`/teacher/rooms/${room.code}`)
+                      }
+                    >
+                      Дидан
+                      <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                ))}
               </div>
-            </CardContent>
-          </Card>
+            )}
+          </section>
         </div>
-      </div>
+      </main>
     </div>
   );
 }

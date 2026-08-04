@@ -3,10 +3,12 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { AppHeader } from '@/components/app-header';
+import { EmptyState } from '@/components/empty-state';
+import { LoadingScreen } from '@/components/loading-screen';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
-import { Plus, LogOut, Trash2 } from 'lucide-react';
+import { Plus, Trash2, Users } from 'lucide-react';
 import { toast } from 'sonner';
 import {
   Dialog,
@@ -62,11 +64,6 @@ export default function AdminDashboard() {
     }
   }
 
-  async function handleLogout() {
-    await fetch('/api/auth/logout', { method: 'POST' });
-    router.push('/');
-  }
-
   async function handleCreateTeacher(e) {
     e.preventDefault();
 
@@ -108,116 +105,131 @@ export default function AdminDashboard() {
   }
 
   if (loading) {
-    return <div className="min-h-screen flex items-center justify-center">Боршавӣ...</div>;
+    return <LoadingScreen />;
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-50 to-pink-100">
-      <div className="container mx-auto p-6">
-        {/* Header */}
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h1 className="text-3xl font-bold">Панели администратор</h1>
-            <p className="text-muted-foreground">Хуш омадед, {user?.name}</p>
+    <div className="min-h-dvh bg-background">
+      <AppHeader
+        title="Панели администратор"
+        subtitle={`Хуш омадед, ${user?.name}`}
+        userName={user?.name}
+      />
+
+      <main className="mx-auto w-full max-w-[1200px] px-4 py-10 md:px-6">
+        <div
+          className="animate-enter mb-10 flex flex-col gap-4 border-b border-zinc-200/80 pb-8 sm:flex-row sm:items-end sm:gap-10"
+          style={{ '--index': 0 }}
+        >
+          <div className="flex items-baseline gap-3">
+            <span className="font-mono text-3xl font-semibold tracking-tight">
+              {teachers.length}
+            </span>
+            <span className="text-sm text-muted-foreground">Омӯзгорон</span>
           </div>
-          <Button variant="outline" onClick={handleLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Баромад
-          </Button>
-        </div>
-        <Card>
-          <CardHeader>
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle>Омӯзгорон</CardTitle>
-                <CardDescription>Идоракунии ҳисобҳои омӯзгорон</CardDescription>
-              </div>
-              <Dialog open={showDialog} onOpenChange={setShowDialog}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="mr-2 h-4 w-4" />
-                    Иловаи омӯзгор
+          <div className="sm:ml-auto">
+            <Dialog open={showDialog} onOpenChange={setShowDialog}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="h-4 w-4" />
+                  Иловаи омӯзгор
+                </Button>
+              </DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Сохтани ҳисоби омӯзгор</DialogTitle>
+                  <DialogDescription>Иловаи омӯзгори нав ба платформа</DialogDescription>
+                </DialogHeader>
+                <form onSubmit={handleCreateTeacher} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="name">Ном</Label>
+                    <Input
+                      id="name"
+                      value={teacherData.name}
+                      onChange={(e) => setTeacherData({ ...teacherData, name: e.target.value })}
+                      placeholder="Номи пурра"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="email">Почтаи электронӣ</Label>
+                    <Input
+                      id="email"
+                      type="email"
+                      value={teacherData.email}
+                      onChange={(e) => setTeacherData({ ...teacherData, email: e.target.value })}
+                      placeholder="teacher@example.com"
+                      required
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="password">Рамз</Label>
+                    <Input
+                      id="password"
+                      type="password"
+                      value={teacherData.password}
+                      onChange={(e) => setTeacherData({ ...teacherData, password: e.target.value })}
+                      placeholder="Рамзи муваққатӣ"
+                      required
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Ин рамзро ба омӯзгор хабар диҳед
+                    </p>
+                  </div>
+                  <Button type="submit" className="w-full">
+                    Сохтани омӯзгор
                   </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Сохтани ҳисоби омӯзгор</DialogTitle>
-                    <DialogDescription>Иловаи омӯзгори нав ба платформа</DialogDescription>
-                  </DialogHeader>
-                  <form onSubmit={handleCreateTeacher} className="space-y-4">
-                    <div>
-                      <Label htmlFor="name">Ном</Label>
-                      <Input
-                        id="name"
-                        value={teacherData.name}
-                        onChange={(e) => setTeacherData({ ...teacherData, name: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="email">Почтаи электронӣ</Label>
-                      <Input
-                        id="email"
-                        type="email"
-                        value={teacherData.email}
-                        onChange={(e) => setTeacherData({ ...teacherData, email: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="password">Рамз</Label>
-                      <Input
-                        id="password"
-                        type="password"
-                        value={teacherData.password}
-                        onChange={(e) => setTeacherData({ ...teacherData, password: e.target.value })}
-                        required
-                      />
-                    </div>
-                    <Button type="submit" className="w-full">
-                      Сохтани омӯзгор
-                    </Button>
-                  </form>
-                </DialogContent>
-              </Dialog>
+                </form>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+
+        <section className="animate-enter" style={{ '--index': 1 }}>
+          <h2 className="mb-4 text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+            Омӯзгорон
+          </h2>
+
+          {teachers.length === 0 ? (
+            <div className="rounded-xl border border-dashed border-zinc-300 bg-white/60">
+              <EmptyState
+                icon={Users}
+                title="Ҳанӯз омӯзгор нест"
+                description="Аввалин ҳисоби омӯзгорро илова кунед"
+              />
             </div>
-          </CardHeader>
-          <CardContent>
-            {teachers.length === 0 ? (
-              <p className="text-muted-foreground text-center py-8">Ҳанӯз омӯзгор нест</p>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b">
-                      <th className="text-left p-3 font-semibold">Ном</th>
-                      <th className="text-left p-3 font-semibold">Почтаи электронӣ</th>
-                      <th className="text-right p-3 font-semibold">Амалҳо</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teachers.map((teacher) => (
-                      <tr key={teacher._id} className="border-b hover:bg-accent/50">
-                        <td className="p-3">{teacher.name}</td>
-                        <td className="p-3">{teacher.email}</td>
-                        <td className="p-3 text-right">
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            onClick={() => deleteTeacher(teacher._id)}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+          ) : (
+            <div className="divide-y divide-zinc-200/70 rounded-xl border border-zinc-200/80 bg-white">
+              {teachers.map((teacher, i) => (
+                <div
+                  key={teacher._id}
+                  className="animate-enter flex items-center gap-4 px-4 py-3.5 transition-colors hover:bg-zinc-50"
+                  style={{ '--index': 2 + i }}
+                >
+                  <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold uppercase text-zinc-700">
+                    {teacher.name?.charAt(0)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate font-medium">{teacher.name}</p>
+                    <p className="truncate font-mono text-xs text-muted-foreground">
+                      {teacher.email}
+                    </p>
+                  </div>
+                  <Button
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => deleteTeacher(teacher._id)}
+                    className="h-8 w-8 shrink-0 text-muted-foreground hover:text-destructive"
+                    aria-label="Нест кардан"
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+      </main>
     </div>
   );
 }
