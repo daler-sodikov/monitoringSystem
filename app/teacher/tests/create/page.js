@@ -23,8 +23,11 @@ import {
   Wifi,
   WifiOff,
   Upload,
+  FileText,
+  FileDown,
 } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
+import { parsePartialJson } from "@/lib/partial-json";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -33,7 +36,6 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -41,6 +43,20 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Document,
+  Packer,
+  Paragraph,
+  TextRun,
+  HeadingLevel,
+} from "docx";
+import jsPDF from "jspdf";
+
+const QUESTION_TYPE_LABELS = {
+  MULTIPLE_CHOICE: "Интихоби сершумор",
+  MATCHING: "Мутобиқсозӣ",
+  OPEN: "Кушод",
+};
 
 // NDJSON streamро мехонад: har қатор як воқеа (delta | done | error)
 async function readGenerationStream(res, onDelta) {
@@ -80,15 +96,31 @@ async function readGenerationStream(res, onDelta) {
   return { doneData, streamError };
 }
 
+let cyrillicFontBase64Cache = null;
+
+// Ҳуруферо аз /public/fonts бор карда, ба base64 барои jsPDF мубаддал мекунад
+async function getCyrillicFontBase64() {
+  if (cyrillicFontBase64Cache) return cyrillicFontBase64Cache;
+
+  const res = await fetch("/fonts/NotoSans-Regular.ttf");
+  const buffer = await res.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  let binary = "";
+  const chunkSize = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+
+  cyrillicFontBase64Cache = btoa(binary);
+  return cyrillicFontBase64Cache;
+}
+
 export default function CreateTest() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
-
-  // Stream holati: qabul qilingan matn va yakuniy natija
-  const [streamedText, setStreamedText] = useState("");
-  const [streamDone, setStreamDone] = useState(false);
-  const previewRef = useRef(null);
+  const [downloadingFormat, setDownloadingFormat] = useState(null);
 
   // Ҳуҷҷат боркунӣ: файл ва дастури иловагии корбар
   const [aiFile, setAiFile] = useState(null);
@@ -115,16 +147,6 @@ export default function CreateTest() {
     variantCount: 1,
   });
 
-  // Progress stream asosida: qabul qilingan belgilar soni taxminiy hajmga nisbatan
-  const estimatedChars =
-    Math.max(
-      1,
-      (parseInt(aiConfig.count) || 1) * (parseInt(aiConfig.variantCount) || 1),
-    ) * 450;
-  const progressValue = streamDone
-    ? 100
-    : Math.min(95, Math.round((streamedText.length / estimatedChars) * 100));
-
   // Generatsiya paytida sahifani yangilashdan ogohlantirish
   useEffect(() => {
     if (!aiLoading) return;
@@ -137,12 +159,42 @@ export default function CreateTest() {
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [aiLoading]);
 
-  // Yangi qism kelganda preview pastga sirpanadi
+  // Generatsiya paytida sahifa avtomatik pastga scroll bo'lib boradi
+  const variantsEndRef = useRef(null);
   useEffect(() => {
-    if (previewRef.current) {
-      previewRef.current.scrollTop = previewRef.current.scrollHeight;
-    }
-  }, [streamedText]);
+    if (!aiLoading) return;
+    variantsEndRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "end",
+    });
+  }, [aiLoading, testData]);
+
+  // Ҳангоми стриминг: майдонҳои нотамомро ба шакли бехатар барои форма меорад
+  function normalizePartialVariants(rawVariants) {
+    if (!Array.isArray(rawVariants)) return [];
+    return rawVariants.map((v, vi) => ({
+      name: v?.name || `Варианти ${vi + 1}`,
+      questions: Array.isArray(v?.questions)
+        ? v.questions.map((q) => ({
+            text: q?.text ?? "",
+            type: q?.type || "MULTIPLE_CHOICE",
+            points: q?.points ?? 1,
+            options: Array.isArray(q?.options)
+              ? q.options.map((o) => ({
+                  text: o?.text ?? "",
+                  isCorrect: !!o?.isCorrect,
+                }))
+              : [],
+            pairs: Array.isArray(q?.pairs)
+              ? q.pairs.map((p) => ({
+                  left: p?.left ?? "",
+                  right: p?.right ?? "",
+                }))
+              : [],
+          }))
+        : [],
+    }));
+  }
 
   async function runDiagnostics() {
     const diag = {
@@ -170,8 +222,10 @@ export default function CreateTest() {
     }
 
     setAiLoading(true);
-    setStreamedText("");
-    setStreamDone(false);
+    setTestData((prev) => ({
+      ...prev,
+      variants: [{ name: "Варианти 1", questions: [] }],
+    }));
 
     try {
       const res = await fetch("/api/generate-test", {
@@ -194,9 +248,20 @@ export default function CreateTest() {
         return;
       }
 
+      let accumulated = "";
       const { doneData, streamError } = await readGenerationStream(
         res,
-        (delta) => setStreamedText((prev) => prev + delta),
+        (delta) => {
+          accumulated += delta;
+          const partial = parsePartialJson(accumulated);
+          if (partial?.variants) {
+            setTestData((prev) => ({
+              ...prev,
+              title: prev.title || aiConfig.subject,
+              variants: normalizePartialVariants(partial.variants),
+            }));
+          }
+        },
       );
 
       if (streamError) {
@@ -205,15 +270,11 @@ export default function CreateTest() {
       }
 
       if (doneData?.variants) {
-        // Stream tugadi -> progress 100% ga yetadi va dialog yopiladi
-        setStreamDone(true);
-        await new Promise((resolve) => setTimeout(resolve, 600));
-
-        setTestData({
-          ...testData,
-          title: testData.title || aiConfig.subject,
-          variants: doneData.variants,
-        });
+        setTestData((prev) => ({
+          ...prev,
+          title: prev.title || aiConfig.subject,
+          variants: normalizePartialVariants(doneData.variants),
+        }));
         toast.success("Саволҳо бо ёрии AI бомуваффақият сохта шуданд!");
       } else {
         toast.error("Хатогӣ ҳангоми тавлиди савол");
@@ -232,8 +293,10 @@ export default function CreateTest() {
     }
 
     setAiLoading(true);
-    setStreamedText("");
-    setStreamDone(false);
+    setTestData((prev) => ({
+      ...prev,
+      variants: [{ name: "Варианти 1", questions: [] }],
+    }));
 
     try {
       const formData = new FormData();
@@ -260,9 +323,21 @@ export default function CreateTest() {
         return;
       }
 
+      const fileTitle = aiFile.name.replace(/\.[^.]+$/, "");
+      let accumulated = "";
       const { doneData, streamError } = await readGenerationStream(
         res,
-        (delta) => setStreamedText((prev) => prev + delta),
+        (delta) => {
+          accumulated += delta;
+          const partial = parsePartialJson(accumulated);
+          if (partial?.variants) {
+            setTestData((prev) => ({
+              ...prev,
+              title: prev.title || fileTitle,
+              variants: normalizePartialVariants(partial.variants),
+            }));
+          }
+        },
       );
 
       if (streamError) {
@@ -271,14 +346,11 @@ export default function CreateTest() {
       }
 
       if (doneData?.variants) {
-        setStreamDone(true);
-        await new Promise((resolve) => setTimeout(resolve, 600));
-
-        setTestData({
-          ...testData,
-          title: testData.title || aiFile.name.replace(/\.[^.]+$/, ""),
-          variants: doneData.variants,
-        });
+        setTestData((prev) => ({
+          ...prev,
+          title: prev.title || fileTitle,
+          variants: normalizePartialVariants(doneData.variants),
+        }));
         toast.success("Саволҳо аз ҳуҷҷат бомуваффақият сохта шуданд!");
       } else {
         toast.error("Хатогӣ ҳангоми тавлиди савол");
@@ -404,6 +476,131 @@ export default function CreateTest() {
     setTestData({ ...testData, variants: newVariants });
   }
 
+  function questionAnswerLines(question) {
+    if (question.type === "MULTIPLE_CHOICE") {
+      return question.options.map(
+        (o, i) =>
+          `${String.fromCharCode(97 + i)}) ${o.text}${o.isCorrect ? " ✓" : ""}`,
+      );
+    }
+    if (question.type === "MATCHING") {
+      return question.pairs.map((p) => `${p.left} ↔ ${p.right}`);
+    }
+    return [];
+  }
+
+  async function downloadAsWord() {
+    const children = [
+      new Paragraph({
+        text: testData.title || "Тест",
+        heading: HeadingLevel.TITLE,
+      }),
+    ];
+    if (testData.description) {
+      children.push(new Paragraph({ text: testData.description }));
+    }
+
+    testData.variants.forEach((variant) => {
+      children.push(
+        new Paragraph({ text: variant.name, heading: HeadingLevel.HEADING_1 }),
+      );
+      variant.questions.forEach((question, qi) => {
+        children.push(
+          new Paragraph({
+            children: [
+              new TextRun({
+                text: `${qi + 1}. ${question.text} (${question.points} балл)`,
+                bold: true,
+              }),
+            ],
+          }),
+        );
+        questionAnswerLines(question).forEach((line) => {
+          children.push(new Paragraph({ text: line, indent: { left: 360 } }));
+        });
+      });
+    });
+
+    const doc = new Document({ sections: [{ children }] });
+    const blob = await Packer.toBlob(doc);
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${testData.title || "test"}.docx`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function downloadAsPdf() {
+    // jsPDF-и стандартӣ ҳарфҳои кириллиро дастгирӣ намекунад, бинобар ин
+    // ҳуруфи Noto Sans (дастгирикунандаи кириллӣ)-ро дар вақти иҷро бор мекунем.
+    const fontBase64 = await getCyrillicFontBase64();
+
+    const doc = new jsPDF();
+    doc.addFileToVFS("NotoSans-Regular.ttf", fontBase64);
+    doc.addFont("NotoSans-Regular.ttf", "NotoSans", "normal");
+    doc.setFont("NotoSans", "normal");
+
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const marginX = 15;
+    const maxWidth = 180;
+    let y = 20;
+
+    const addLines = (text, options = {}) => {
+      const { fontSize = 11, indent = 0 } = options;
+      doc.setFontSize(fontSize);
+      const lines = doc.splitTextToSize(text, maxWidth - indent);
+      lines.forEach((line) => {
+        if (y > pageHeight - 20) {
+          doc.addPage();
+          y = 20;
+        }
+        doc.text(line, marginX + indent, y);
+        y += fontSize / 2;
+      });
+      y += 2;
+    };
+
+    addLines(testData.title || "Тест", { fontSize: 16 });
+    if (testData.description) {
+      addLines(testData.description, { fontSize: 10 });
+    }
+
+    testData.variants.forEach((variant) => {
+      y += 4;
+      addLines(variant.name, { fontSize: 13 });
+      variant.questions.forEach((question, qi) => {
+        addLines(`${qi + 1}. ${question.text} (${question.points} балл)`, {
+          fontSize: 11,
+        });
+        questionAnswerLines(question).forEach((line) => {
+          addLines(line, { fontSize: 10, indent: 5 });
+        });
+      });
+    });
+
+    doc.save(`${testData.title || "test"}.pdf`);
+  }
+
+  async function handleDownload(format) {
+    setDownloadingFormat(format);
+    try {
+      if (format === "pdf") {
+        await downloadAsPdf();
+      } else {
+        await downloadAsWord();
+      }
+    } catch (error) {
+      toast.error("Хатогӣ ҳангоми боргирӣ: " + error.message);
+    } finally {
+      setDownloadingFormat(null);
+    }
+  }
+
+  const hasGeneratedQuestions = testData.variants.some(
+    (v) => v.questions.length > 0,
+  );
+
   async function handleSubmit(e) {
     e.preventDefault();
 
@@ -443,71 +640,6 @@ export default function CreateTest() {
 
   return (
     <div className="min-h-dvh bg-background">
-      <Dialog open={aiLoading}>
-        <DialogContent
-          className="sm:max-w-md"
-          onPointerDownOutside={(e) => e.preventDefault()}
-        >
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Sparkles className="h-5 w-5 text-primary animate-pulse" />
-              Генератсияи саволҳо бо AI
-            </DialogTitle>
-            <DialogDescription>
-              Лутфан саҳифаро нав накунед. AI дар ҳоли сохтани тест аст.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col items-center justify-center py-6 space-y-4">
-            <div className="relative">
-              {/* Stream ochilganda spinner tezlashadi */}
-              <Loader2
-                className="h-16 w-16 text-primary"
-                style={{
-                  animation: "spin linear infinite",
-                  animationDuration: streamedText ? "0.75s" : "2.5s",
-                }}
-              />
-              <div className="absolute inset-0 flex items-center justify-center">
-                <div className="h-8 w-8 bg-white rounded-full flex items-center justify-center shadow-sm">
-                  <span className="text-xs font-bold text-primary">
-                    {progressValue}%
-                  </span>
-                </div>
-              </div>
-            </div>
-            <div className="text-center space-y-2 w-full">
-              <p className="font-medium text-lg text-foreground h-7">
-                {streamDone
-                  ? "Маълумот қабул шуд! Омодасозии ниҳоӣ..."
-                  : streamedText
-                    ? `Қабул шуда истодааст: ${streamedText.length} аломат`
-                    : "Пайвастшавӣ ба AI..."}
-              </p>
-              <Progress
-                value={progressValue}
-                className="h-2 transition-all duration-300 ease-out"
-              />
-              <p className="text-xs text-muted-foreground italic">
-                {streamDone
-                  ? "Камтар аз як сония монд..."
-                  : "Ҷавоби AI дар вақти воқеӣ намоиш дода мешавад"}
-              </p>
-            </div>
-            {/* Streamdan kelayotgan matnning jonli namoyishi */}
-            {streamedText && (
-              <div
-                ref={previewRef}
-                className="w-full max-h-36 overflow-y-auto rounded-md border bg-muted/50 p-2"
-              >
-                <pre className="text-[10px] leading-4 font-mono whitespace-pre-wrap break-all text-muted-foreground">
-                  {streamedText}
-                </pre>
-              </div>
-            )}
-          </div>
-        </DialogContent>
-      </Dialog>
-
       <Dialog open={!!diagnostics} onOpenChange={() => setDiagnostics(null)}>
         <DialogContent>
           <DialogHeader>
@@ -774,12 +906,46 @@ export default function CreateTest() {
 
               {/* Variants */}
               <div className="space-y-4">
-                <div className="flex justify-between items-center">
+                <div className="flex flex-wrap justify-between items-center gap-2">
                   <h3 className="text-lg font-semibold">Вариантҳо</h3>
-                  <Button type="button" onClick={addVariant} size="sm">
-                    <Plus className="mr-2 h-4 w-4" />
-                    Иловаи вариант
-                  </Button>
+                  <div className="flex flex-wrap gap-2">
+                    {hasGeneratedQuestions && (
+                      <>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownload("pdf")}
+                          disabled={downloadingFormat !== null}
+                        >
+                          {downloadingFormat === "pdf" ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <FileDown className="mr-2 h-4 w-4" />
+                          )}
+                          PDF
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleDownload("word")}
+                          disabled={downloadingFormat !== null}
+                        >
+                          {downloadingFormat === "word" ? (
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          ) : (
+                            <FileText className="mr-2 h-4 w-4" />
+                          )}
+                          Word
+                        </Button>
+                      </>
+                    )}
+                    <Button type="button" onClick={addVariant} size="sm">
+                      <Plus className="mr-2 h-4 w-4" />
+                      Иловаи вариант
+                    </Button>
+                  </div>
                 </div>
 
                 {testData.variants.map((variant, variantIndex) => (
@@ -1062,6 +1228,7 @@ export default function CreateTest() {
                     </CardContent>
                   </Card>
                 ))}
+                <div ref={variantsEndRef} />
               </div>
 
               <div className="flex gap-3">

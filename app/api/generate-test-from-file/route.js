@@ -1,4 +1,8 @@
-import { chatCompletionStream, parseGeneratedJson } from "@/lib/kimi";
+import {
+  chatCompletionStream,
+  parseGeneratedJson,
+  enforceQuestionCounts,
+} from "@/lib/kimi";
 import { extractTextFromFile } from "@/lib/extract-text";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 МБ
@@ -158,6 +162,12 @@ export async function POST(request) {
             controller.close();
             return;
           }
+
+          generatedData = enforceQuestionCounts(
+            generatedData,
+            variantCount,
+            count,
+          );
 
           send({ type: "done", success: true, ...generatedData });
           controller.close();

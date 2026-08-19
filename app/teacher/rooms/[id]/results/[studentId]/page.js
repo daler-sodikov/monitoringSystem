@@ -77,7 +77,7 @@ export default function StudentResultDetail() {
     return <LoadingScreen />;
   }
 
-  if (!data || !data.result) {
+  if (!data || !data.student || !data.questions) {
     return (
       <div className="flex min-h-dvh flex-col bg-background">
         <AppHeader title="Натиҷа" backHref="/teacher" showLogout={false} />
@@ -87,6 +87,8 @@ export default function StudentResultDetail() {
   }
 
   const { room, student, result, questions } = data;
+  // Модоме ки ҳуҷра ҳанӯз пӯшида нашудааст, натиҷа (хол/фоиз) ҳисоб карда нашудааст
+  const isGraded = !!result;
 
   async function handleGradeQuestion(questionId, isCorrect) {
     setGrading({ questionId, isCorrect });
@@ -134,9 +136,13 @@ export default function StudentResultDetail() {
             <div>
               <h2 className="text-2xl font-semibold tracking-tighter">{student.name}</h2>
               <div className="mt-1.5 flex items-center gap-2">
-                <Badge variant={result.percentage >= 60 ? 'default' : 'destructive'}>
-                  {result.percentage >= 60 ? 'Гузашт' : 'Нагузашт'}
-                </Badge>
+                {isGraded ? (
+                  <Badge variant={result.percentage >= 60 ? 'default' : 'destructive'}>
+                    {result.percentage >= 60 ? 'Гузашт' : 'Нагузашт'}
+                  </Badge>
+                ) : (
+                  <Badge variant="secondary">Ҳуҷра ҳанӯз кушода аст</Badge>
+                )}
                 {hasPendingOpen && (
                   <Badge variant="secondary" className="text-amber-700 bg-amber-50">
                     Номуайян
@@ -146,35 +152,42 @@ export default function StudentResultDetail() {
             </div>
           </div>
 
-          <div className="flex items-end gap-10">
-            <div>
-              <p className="font-mono text-4xl font-semibold tracking-tight">
-                {result.percentage}
-                <span className="text-xl text-muted-foreground">%</span>
-              </p>
-              <p className="mt-1 text-sm text-muted-foreground">Фоизи умумӣ</p>
+          {isGraded ? (
+            <div className="flex items-end gap-10">
+              <div>
+                <p className="font-mono text-4xl font-semibold tracking-tight">
+                  {result.percentage}
+                  <span className="text-xl text-muted-foreground">%</span>
+                </p>
+                <p className="mt-1 text-sm text-muted-foreground">Фоизи умумӣ</p>
+              </div>
+              <div className="space-y-1.5 border-l border-zinc-200/80 pl-6 text-sm">
+                <div className="flex justify-between gap-6">
+                  <span className="text-muted-foreground">Холҳо</span>
+                  <span className="font-mono font-medium">
+                    {result.score}/{result.totalPoints}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-6">
+                  <span className="text-muted-foreground">Сана</span>
+                  <span className="font-mono font-medium">
+                    {new Date(result.createdAt).toLocaleDateString()}
+                  </span>
+                </div>
+                <div className="flex justify-between gap-6">
+                  <span className="text-muted-foreground">Сатҳ</span>
+                  <span className="font-medium">
+                    {result.percentage >= 90 ? 'Аъло' : result.percentage >= 75 ? 'Хуб' : result.percentage >= 60 ? 'Қаноатбахш' : 'Ғайриқаноатбахш'}
+                  </span>
+                </div>
+              </div>
             </div>
-            <div className="space-y-1.5 border-l border-zinc-200/80 pl-6 text-sm">
-              <div className="flex justify-between gap-6">
-                <span className="text-muted-foreground">Холҳо</span>
-                <span className="font-mono font-medium">
-                  {result.score}/{result.totalPoints}
-                </span>
-              </div>
-              <div className="flex justify-between gap-6">
-                <span className="text-muted-foreground">Сана</span>
-                <span className="font-mono font-medium">
-                  {new Date(result.createdAt).toLocaleDateString()}
-                </span>
-              </div>
-              <div className="flex justify-between gap-6">
-                <span className="text-muted-foreground">Сатҳ</span>
-                <span className="font-medium">
-                  {result.percentage >= 90 ? 'Аъло' : result.percentage >= 75 ? 'Хуб' : result.percentage >= 60 ? 'Қаноатбахш' : 'Ғайриқаноатбахш'}
-                </span>
-              </div>
-            </div>
-          </div>
+          ) : (
+            <p className="max-w-xs text-sm text-muted-foreground">
+              Хол ва фоиз пас аз пӯшидани ҳуҷра ҳисоб карда мешавад. Дар зер
+              ҷавобҳое, ки донишҷӯ то ҳол супоридааст, нишон дода шудаанд.
+            </p>
+          )}
         </div>
 
         {/* Саволҳо */}

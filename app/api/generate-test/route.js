@@ -1,4 +1,8 @@
-import { chatCompletionStream, parseGeneratedJson } from "@/lib/kimi";
+import {
+  chatCompletionStream,
+  parseGeneratedJson,
+  enforceQuestionCounts,
+} from "@/lib/kimi";
 
 export async function POST(request) {
   try {
@@ -109,6 +113,12 @@ export async function POST(request) {
             controller.close();
             return;
           }
+
+          generatedData = enforceQuestionCounts(
+            generatedData,
+            variantCount,
+            count,
+          );
 
           send({ type: "done", success: true, ...generatedData });
           controller.close();

@@ -7,7 +7,7 @@ import { AppHeader } from '@/components/app-header';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingScreen } from '@/components/loading-screen';
 import { Badge } from '@/components/ui/badge';
-import { Copy, X, BarChart3, ChevronRight, Users, Link2 } from 'lucide-react';
+import { Copy, X, BarChart3, ChevronRight, Users, Link2, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 export default function RoomView() {
@@ -17,6 +17,7 @@ export default function RoomView() {
 
   const [room, setRoom] = useState(null);
   const [results, setResults] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,6 +27,13 @@ export default function RoomView() {
       loadResults();
     }
   }, [roomId]);
+
+  // Модоме ки ҳуҷра кушода аст, рӯйхати супоридашударо давра ба давра нав мекунем
+  useEffect(() => {
+    if (!roomId || room?.status !== 'OPEN') return;
+    const interval = setInterval(loadResults, 5000);
+    return () => clearInterval(interval);
+  }, [roomId, room?.status]);
 
   async function checkAuth() {
     try {
@@ -58,6 +66,7 @@ export default function RoomView() {
       if (res.ok) {
         const data = await res.json();
         setResults(data.results || []);
+        setSubmissions(data.submissions || []);
       }
     } catch (error) {
       console.error('Load results error:', error);
@@ -176,29 +185,72 @@ export default function RoomView() {
           </p>
         )}
 
-        {/* Натиҷаҳо */}
+        {/* Натиҷаҳо ё донишҷӯёни супоридашуда */}
         <section className="animate-enter mt-10" style={{ '--index': 2 }}>
           <div className="mb-4 flex items-baseline gap-3">
             <h2 className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Натиҷаҳо
+              {room.status === 'OPEN' ? 'Супоридаанд' : 'Натиҷаҳо'}
             </h2>
-            {results.length > 0 && (
-              <span className="font-mono text-xs text-muted-foreground">
-                {results.length} донишҷӯ
-              </span>
-            )}
+            {room.status === 'OPEN'
+              ? submissions.length > 0 && (
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {submissions.length} донишҷӯ
+                  </span>
+                )
+              : results.length > 0 && (
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {results.length} донишҷӯ
+                  </span>
+                )}
           </div>
 
-          {results.length === 0 ? (
+          {room.status === 'OPEN' ? (
+            submissions.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-zinc-300 bg-white/60">
+                <EmptyState
+                  icon={Users}
+                  title="Интизори донишҷӯён"
+                  description="Кодро мубодила кунед ва интизори ҳамроҳшавии донишҷӯён бошед"
+                />
+              </div>
+            ) : (
+              <div className="divide-y divide-zinc-200/70 rounded-xl border border-zinc-200/80 bg-white">
+                {submissions.map((submission, i) => (
+                  <button
+                    key={submission._id}
+                    onClick={() =>
+                      router.push(`/teacher/rooms/${roomId}/results/${submission.studentId}`)
+                    }
+                    className="animate-enter flex w-full items-center gap-4 px-4 py-3.5 text-left transition-colors hover:bg-zinc-50"
+                    style={{ '--index': 3 + i }}
+                  >
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-sm font-semibold uppercase text-zinc-700">
+                      {submission.student?.name?.charAt(0) || '?'}
+                    </span>
+                    <span className="min-w-0 flex-1 truncate font-medium">
+                      {submission.student?.name || 'Номаълум'}
+                    </span>
+                    <span className="font-mono text-xs text-muted-foreground">
+                      {new Date(submission.submittedAt).toLocaleTimeString('tg-TJ', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                    <Badge variant="secondary" className="gap-1">
+                      <CheckCircle2 className="h-3.5 w-3.5" />
+                      Супорид
+                    </Badge>
+                    <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+                  </button>
+                ))}
+              </div>
+            )
+          ) : results.length === 0 ? (
             <div className="rounded-xl border border-dashed border-zinc-300 bg-white/60">
               <EmptyState
                 icon={Users}
-                title={room.status === 'OPEN' ? 'Интизори донишҷӯён' : 'Натиҷа нест'}
-                description={
-                  room.status === 'OPEN'
-                    ? 'Кодро мубодила кунед ва интизори ҳамроҳшавии донишҷӯён бошед'
-                    : 'Ҳеҷ донишҷӯе ин тестро супорида нашудааст'
-                }
+                title="Натиҷа нест"
+                description="Ҳеҷ донишҷӯе ин тестро супорида нашудааст"
               />
             </div>
           ) : (

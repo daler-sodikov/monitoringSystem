@@ -792,7 +792,21 @@ async function handleGetRoomResults(request, roomId) {
         );
       }
 
-      return Response.json({ results, room });
+      // Донишҷӯёне, ки то пӯшидани ҳуҷра ҷавобҳояшонро супоридаанд
+      // (то ҳол натиҷа ҳисоб карда нашудааст, аммо аллакай submit кардаанд)
+      const submissions = await db.collection('roomstudents')
+        .find({ roomId: roomId, submittedAt: { $ne: null } })
+        .sort({ submittedAt: 1 })
+        .toArray();
+
+      for (const submission of submissions) {
+        submission.student = await db.collection('users').findOne(
+          { _id: new ObjectId(submission.studentId) },
+          { projection: { password: 0 } }
+        );
+      }
+
+      return Response.json({ results, submissions, room });
     }
 
     // Students can only see their own result
@@ -830,6 +844,9 @@ async function handleGetStudentResult(request, roomId, studentId) {
     if (!room) {
       return Response.json({ error: 'Room not found' }, { status: 404 });
     }
+
+    // Get test details
+    room.test = await db.collection('tests').findOne({ _id: new ObjectId(room.testId) });
 
     // Security check
     if (user.role === 'TEACHER' && room.teacherId !== user._id.toString()) {
