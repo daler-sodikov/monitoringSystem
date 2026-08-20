@@ -309,12 +309,18 @@ export default function RoomAccess() {
                   {result.percentage}
                   <span className="text-3xl text-muted-foreground">%</span>
                 </p>
-                <Badge
-                  variant={result.percentage >= 60 ? 'default' : 'destructive'}
-                  className="mt-4"
-                >
-                  {result.percentage >= 60 ? 'Гузашт' : 'Нагузашт'}
-                </Badge>
+                {result.hasPendingOpen ? (
+                  <Badge variant="secondary" className="mt-4 text-amber-700 bg-amber-50">
+                    Тафтиш нашудааст
+                  </Badge>
+                ) : (
+                  <Badge
+                    variant={result.percentage >= 60 ? 'default' : 'destructive'}
+                    className="mt-4"
+                  >
+                    {result.percentage >= 60 ? 'Гузашт' : 'Нагузашт'}
+                  </Badge>
+                )}
               </div>
               <div className="animate-enter space-y-0 border-l-2 border-zinc-200/80 lg:col-span-2" style={{ '--index': 1 }}>
                 {[

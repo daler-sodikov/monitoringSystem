@@ -7,6 +7,7 @@ import { AppHeader } from '@/components/app-header';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingScreen } from '@/components/loading-screen';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import {
   CheckCircle2,
   XCircle,
@@ -36,7 +37,7 @@ export default function StudentResultDetail() {
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [grading, setGrading] = useState(null);
-  const [refreshKey, setRefreshKey] = useState(0);
+  const [scoreInputs, setScoreInputs] = useState({});
 
   useEffect(() => {
     if (roomId && studentId) {
@@ -100,7 +101,36 @@ export default function StudentResultDetail() {
       });
       if (res.ok) {
         toast.success(isCorrect ? 'Ҷавоб дуруст маъқул шуд' : 'Ҷавоб нодуруст маъқул шуд');
-        setRefreshKey(prev => prev + 1);
+        await loadData();
+      } else {
+        toast.error('Хатогӣ ҳангоми ҳисоб кардан хол');
+      }
+    } catch (error) {
+      toast.error('Хатогӣ ҳангоми ҳисоб кардан хол');
+    } finally {
+      setGrading(null);
+    }
+  }
+
+  async function handleSetScore(questionId, maxPoints) {
+    const raw = scoreInputs[questionId];
+    const score = Math.max(0, Math.min(maxPoints, Number(raw)));
+
+    if (raw === undefined || raw === '' || Number.isNaN(Number(raw))) {
+      toast.error('Лутфан холи дуруст ворид кунед');
+      return;
+    }
+
+    setGrading({ questionId, isCorrect: null });
+    try {
+      const res = await fetch(`/api/rooms/${roomId}/grade/${studentId}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ questionId, score })
+      });
+      if (res.ok) {
+        toast.success(`Хол ${score}/${maxPoints} сабт шуд`);
+        await loadData();
       } else {
         toast.error('Хатогӣ ҳангоми ҳисоб кардан хол');
       }
@@ -136,16 +166,16 @@ export default function StudentResultDetail() {
             <div>
               <h2 className="text-2xl font-semibold tracking-tighter">{student.name}</h2>
               <div className="mt-1.5 flex items-center gap-2">
-                {isGraded ? (
+                {isGraded && !hasPendingOpen ? (
                   <Badge variant={result.percentage >= 60 ? 'default' : 'destructive'}>
                     {result.percentage >= 60 ? 'Гузашт' : 'Нагузашт'}
                   </Badge>
-                ) : (
+                ) : !isGraded ? (
                   <Badge variant="secondary">Ҳуҷра ҳанӯз кушода аст</Badge>
-                )}
+                ) : null}
                 {hasPendingOpen && (
                   <Badge variant="secondary" className="text-amber-700 bg-amber-50">
-                    Номуайян
+                    Тафтиш нашудааст
                   </Badge>
                 )}
               </div>
@@ -320,7 +350,7 @@ export default function StudentResultDetail() {
                         <HelpCircle className="h-3.5 w-3.5" strokeWidth={1.5} />
                         Саволҳои кушода бояд дастӣ санҷида шаванд
                       </div>
-                      <div className="mt-3 flex items-center gap-2 border-t border-zinc-200/70 pt-3">
+                      <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-zinc-200/70 pt-3">
                         <span className="text-xs text-muted-foreground">Баҳо диҳед:</span>
                         <Button
                           size="sm"
@@ -340,7 +370,42 @@ export default function StudentResultDetail() {
                           <XCircle className="h-3.5 w-3.5 text-destructive" strokeWidth={1.5} />
                           Нодуруст
                         </Button>
+                        <div className="ml-auto flex items-center gap-2">
+                          <span className="text-xs text-muted-foreground">Холи қисмӣ:</span>
+                          <Input
+                            type="number"
+                            min={0}
+                            max={q.points}
+                            step={1}
+                            placeholder={
+                              typeof q.answer?.pointsAwarded === 'number'
+                                ? String(q.answer.pointsAwarded)
+                                : '0'
+                            }
+                            value={scoreInputs[q._id] ?? ''}
+                            onChange={(e) =>
+                              setScoreInputs((prev) => ({
+                                ...prev,
+                                [q._id]: e.target.value,
+                              }))
+                            }
+                            className="h-8 w-20"
+                          />
+                          <span className="text-xs text-muted-foreground">/ {q.points}</span>
+                          <Button
+                            size="sm"
+                            disabled={grading?.questionId === q._id}
+                            onClick={() => handleSetScore(q._id, q.points)}
+                          >
+                            Сабт
+                          </Button>
+                        </div>
                       </div>
+                      {typeof q.answer?.pointsAwarded === 'number' && (
+                        <p className="mt-2 text-xs text-muted-foreground">
+                          Холи ҷории ин савол: {q.answer.pointsAwarded}/{q.points}
+                        </p>
+                      )}
                     </div>
                   )}
 

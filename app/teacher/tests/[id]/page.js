@@ -6,7 +6,8 @@ import { AppHeader } from '@/components/app-header';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingScreen } from '@/components/loading-screen';
 import { Badge } from '@/components/ui/badge';
-import { ArrowLeftRight, FileText, Check } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { ArrowLeftRight, FileText, Check, Pencil } from 'lucide-react';
 
 export default function TestView() {
   const router = useRouter();
@@ -70,6 +71,16 @@ export default function TestView() {
       />
 
       <main className="mx-auto w-full max-w-[1200px] px-4 py-10 md:px-6">
+        <div className="mb-6 flex justify-end">
+          <Button
+            size="sm"
+            onClick={() => router.push(`/teacher/tests/${testId}/edit`)}
+          >
+            <Pencil className="mr-2 h-3.5 w-3.5" />
+            Таҳрир кардан
+          </Button>
+        </div>
+
         <div className="space-y-12">
           {test.variants?.map((variant, variantIndex) => (
             <section

@@ -13,6 +13,7 @@ import {
   FileText,
   DoorOpen,
   ChevronRight,
+  Pencil,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -202,6 +203,15 @@ export default function TeacherDashboard() {
                     >
                       Дидан
                       <ChevronRight className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      onClick={() => router.push(`/teacher/tests/${test._id}/edit`)}
+                      className="h-8 w-8 shrink-0 text-muted-foreground hover:text-foreground"
+                      aria-label="Таҳрир кардан"
+                    >
+                      <Pencil className="h-4 w-4" />
                     </Button>
                     <Button
                       size="icon"

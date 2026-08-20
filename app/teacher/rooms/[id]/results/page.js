@@ -169,9 +169,15 @@ export default function RoomResults() {
                           </div>
                         </td>
                         <td className="px-5 py-3.5 text-center">
-                          <Badge variant={result.percentage >= 60 ? 'default' : 'destructive'}>
-                            {result.percentage >= 60 ? 'Гузашт' : 'Нагузашт'}
-                          </Badge>
+                          {result.hasPendingOpen ? (
+                            <Badge variant="secondary" className="text-amber-700 bg-amber-50">
+                              Тафтиш нашудааст
+                            </Badge>
+                          ) : (
+                            <Badge variant={result.percentage >= 60 ? 'default' : 'destructive'}>
+                              {result.percentage >= 60 ? 'Гузашт' : 'Нагузашт'}
+                            </Badge>
+                          )}
                         </td>
                         <td className="px-5 py-3.5 text-right">
                           <span className="inline-flex items-center gap-1 text-sm font-medium text-primary">

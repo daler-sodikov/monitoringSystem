@@ -305,6 +305,108 @@ async function handleGetTest(request, testId) {
   return Response.json({ test });
 }
 
+async function handleUpdateTest(request, testId) {
+  const user = await getCurrentUser();
+  if (!user || user.role !== 'TEACHER') {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const { title, description, variants } = await request.json();
+
+    if (!title || !variants || variants.length === 0) {
+      return Response.json({ error: 'Title and at least one variant required' }, { status: 400 });
+    }
+
+    const db = await getDb();
+    const test = await db.collection('tests').findOne({ _id: new ObjectId(testId) });
+
+    if (!test) {
+      return Response.json({ error: 'Test not found' }, { status: 404 });
+    }
+
+    if (test.teacherId !== user._id.toString()) {
+      return Response.json({ error: 'Forbidden' }, { status: 403 });
+    }
+
+    // Remove existing variants/questions/options/pairs for this test
+    const existingVariants = await db.collection('variants').find({ testId }).toArray();
+
+    for (const variant of existingVariants) {
+      const variantId = variant._id.toString();
+      const questions = await db.collection('questions').find({ variantId }).toArray();
+
+      for (const question of questions) {
+        const questionId = question._id.toString();
+        await db.collection('options').deleteMany({ questionId });
+        await db.collection('matchingpairs').deleteMany({ questionId });
+      }
+
+      await db.collection('questions').deleteMany({ variantId });
+    }
+
+    await db.collection('variants').deleteMany({ testId });
+
+    // Update test details
+    await db.collection('tests').updateOne(
+      { _id: new ObjectId(testId) },
+      { $set: { title, description: description || '', updatedAt: new Date() } }
+    );
+
+    // Recreate variants with questions
+    for (const variant of variants) {
+      const variantResult = await db.collection('variants').insertOne({
+        testId,
+        name: variant.name || 'Variant',
+        createdAt: new Date()
+      });
+
+      const variantId = variantResult.insertedId.toString();
+
+      if (variant.questions && variant.questions.length > 0) {
+        for (let i = 0; i < variant.questions.length; i++) {
+          const q = variant.questions[i];
+          const questionResult = await db.collection('questions').insertOne({
+            variantId,
+            text: q.text,
+            type: q.type,
+            order: i + 1,
+            points: q.points || 1,
+            createdAt: new Date()
+          });
+
+          const questionId = questionResult.insertedId.toString();
+
+          if (q.type === 'MULTIPLE_CHOICE' && q.options) {
+            for (const opt of q.options) {
+              await db.collection('options').insertOne({
+                questionId,
+                text: opt.text,
+                isCorrect: opt.isCorrect || false
+              });
+            }
+          }
+
+          if (q.type === 'MATCHING' && q.pairs) {
+            for (const pair of q.pairs) {
+              await db.collection('matchingpairs').insertOne({
+                questionId,
+                left: pair.left,
+                right: pair.right
+              });
+            }
+          }
+        }
+      }
+    }
+
+    return Response.json({ success: true, testId });
+  } catch (error) {
+    console.error('Update test error:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 async function handleDeleteTest(request, testId) {
   const user = await getCurrentUser();
   if (!user || user.role !== 'TEACHER') {
@@ -719,13 +821,15 @@ async function handleCloseRoom(request, roomId) {
           }
 
           isCorrect = allCorrect;
+        } else if (question.type === 'OPEN') {
+          // Саволҳои кушод бояд дастӣ санҷида шаванд — то он вақт холи ибтидоӣ 0 аст
+          isCorrect = null;
         }
-        // OPEN questions remain unchecked (isCorrect = false by default)
 
         // Update answer with isCorrect
         await db.collection('answers').updateOne(
           { _id: answer._id },
-          { $set: { isCorrect } }
+          { $set: { isCorrect, pointsAwarded: isCorrect ? (question.points || 1) : 0 } }
         );
 
         if (isCorrect) {
@@ -790,6 +894,12 @@ async function handleGetRoomResults(request, roomId) {
           { _id: new ObjectId(result.studentId) },
           { projection: { password: 0 } }
         );
+
+        // Агар саволи кушод ҳанӯз дастӣ санҷида нашуда бошад, "Гузашт/Нагузашт"-ро нишон надиҳем
+        result.hasPendingOpen = (await db.collection('answers').countDocuments({
+          roomStudentId: result.roomStudentId,
+          isCorrect: null
+        })) > 0;
       }
 
       // Донишҷӯёне, ки то пӯшидани ҳуҷра ҷавобҳояшонро супоридаанд
@@ -819,6 +929,11 @@ async function handleGetRoomResults(request, roomId) {
       if (!result) {
         return Response.json({ error: 'Result not found' }, { status: 404 });
       }
+
+      result.hasPendingOpen = (await db.collection('answers').countDocuments({
+        roomStudentId: result.roomStudentId,
+        isCorrect: null
+      })) > 0;
 
       return Response.json({ result, room });
     }
@@ -995,7 +1110,7 @@ async function handleManualGrade(request, roomId, studentId) {
   }
 
   try {
-    const { questionId, isCorrect } = await request.json();
+    const { questionId, isCorrect, score } = await request.json();
 
     const db = await getDb();
     const room = await db.collection('rooms').findOne({ code: roomId });
@@ -1008,21 +1123,6 @@ async function handleManualGrade(request, roomId, studentId) {
       return Response.json({ error: 'Forbidden' }, { status: 403 });
     }
 
-    // Get the answer and update isCorrect
-    const answer = await db.collection('answers').findOne({
-      roomStudentId: studentId,
-      questionId: questionId
-    });
-
-    if (!answer) {
-      return Response.json({ error: 'Answer not found' }, { status: 404 });
-    }
-
-    await db.collection('answers').updateOne(
-      { _id: answer._id },
-      { $set: { isCorrect } }
-    );
-
     // Recalculate score for this student
     const roomStudent = await db.collection('roomstudents').findOne({
       roomId: roomId,
@@ -1033,6 +1133,35 @@ async function handleManualGrade(request, roomId, studentId) {
       return Response.json({ error: 'Room student record not found' }, { status: 404 });
     }
 
+    // Get the answer and update isCorrect / partial score
+    const answer = await db.collection('answers').findOne({
+      roomStudentId: roomStudent._id.toString(),
+      questionId: questionId
+    });
+
+    if (!answer) {
+      return Response.json({ error: 'Answer not found' }, { status: 404 });
+    }
+
+    const question = await db.collection('questions').findOne({ _id: new ObjectId(questionId) });
+    const maxPoints = question?.points || 1;
+
+    const update = {};
+    if (typeof score === 'number') {
+      // Дасти таъин кардани холи қисмӣ (масалан барои саволҳои кушод)
+      const clampedScore = Math.max(0, Math.min(maxPoints, score));
+      update.pointsAwarded = clampedScore;
+      update.isCorrect = clampedScore >= maxPoints ? true : clampedScore <= 0 ? false : null;
+    } else {
+      update.isCorrect = isCorrect;
+      update.pointsAwarded = isCorrect ? maxPoints : 0;
+    }
+
+    await db.collection('answers').updateOne(
+      { _id: answer._id },
+      { $set: update }
+    );
+
     const questions = await db.collection('questions')
       .find({ variantId: roomStudent.assignedVariantId })
       .toArray();
@@ -1040,16 +1169,20 @@ async function handleManualGrade(request, roomId, studentId) {
     let totalScore = 0;
     let totalPoints = 0;
 
-    for (const question of questions) {
-      totalPoints += question.points || 1;
+    for (const q of questions) {
+      totalPoints += q.points || 1;
 
       const ans = await db.collection('answers').findOne({
         roomStudentId: roomStudent._id.toString(),
-        questionId: question._id.toString()
+        questionId: q._id.toString()
       });
 
-      if (ans && ans.isCorrect) {
-        totalScore += question.points || 1;
+      if (ans) {
+        if (typeof ans.pointsAwarded === 'number') {
+          totalScore += ans.pointsAwarded;
+        } else if (ans.isCorrect) {
+          totalScore += q.points || 1;
+        }
       }
     }
 
@@ -1147,6 +1280,23 @@ export async function POST(request, { params }) {
     return Response.json({ error: 'Not found' }, { status: 404 });
   } catch (error) {
     console.error('POST error:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
+export async function PUT(request, { params }) {
+  const path = (await params)?.path || [];
+  const endpoint = '/' + path.join('/');
+
+  try {
+    if (endpoint.match(/^\/tests\/[a-f0-9]{24}$/)) {
+      const testId = path[1];
+      return handleUpdateTest(request, testId);
+    }
+
+    return Response.json({ error: 'Not found' }, { status: 404 });
+  } catch (error) {
+    console.error('PUT error:', error);
     return Response.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
