@@ -1,7 +1,6 @@
 import {
   chatCompletionStream,
   parseGeneratedJson,
-  enforceQuestionCounts,
 } from "@/lib/kimi";
 import { extractTextFromFile } from "@/lib/extract-text";
 
@@ -162,12 +161,6 @@ export async function POST(request) {
             controller.close();
             return;
           }
-
-          generatedData = enforceQuestionCounts(
-            generatedData,
-            variantCount,
-            count,
-          );
 
           send({ type: "done", success: true, ...generatedData });
           controller.close();

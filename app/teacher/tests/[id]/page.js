@@ -8,6 +8,7 @@ import { LoadingScreen } from '@/components/loading-screen';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ArrowLeftRight, FileText, Check, Pencil } from 'lucide-react';
+import { sanitizeHtml } from '@/lib/rich-text';
 
 export default function TestView() {
   const router = useRouter();
@@ -112,7 +113,10 @@ export default function TestView() {
                     </span>
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-start justify-between gap-2">
-                        <h4 className="font-medium leading-snug">{question.text}</h4>
+                        <div
+                          className="max-w-none font-medium leading-snug [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-300 [&_blockquote]:pl-3 [&_code]:rounded [&_code]:bg-zinc-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_hr]:my-3 [&_hr]:border-zinc-200"
+                          dangerouslySetInnerHTML={{ __html: sanitizeHtml(question.text) }}
+                        />
                         <div className="flex shrink-0 gap-2">
                           <Badge variant="secondary" className="uppercase text-[10px]">
                             {question.type.replace('_', ' ')}

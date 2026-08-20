@@ -1,19 +1,25 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { LogoMark } from "@/components/logo-mark";
+import { ProfileModal } from "@/components/profile-modal";
 
 export function AppHeader({
   title = "Платформаи тестӣ",
   subtitle,
   userName,
+  user,
+  onUserUpdate,
   backHref,
   actions,
   showLogout = true,
 }) {
   const router = useRouter();
+  const [profileOpen, setProfileOpen] = useState(false);
+  const displayName = user?.name || userName;
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -50,15 +56,19 @@ export function AppHeader({
         </div>
         <div className="flex shrink-0 items-center gap-2">
           {actions}
-          {userName && (
-            <div className="hidden items-center gap-2.5 rounded-full border border-zinc-200/80 bg-white py-1 pl-1 pr-3.5 sm:flex">
+          {displayName && (
+            <button
+              type="button"
+              onClick={() => setProfileOpen(true)}
+              className="hidden items-center gap-2.5 rounded-full border border-zinc-200/80 bg-white py-1 pl-1 pr-3.5 transition-colors hover:bg-zinc-50 sm:flex"
+            >
               <span className="flex h-7 w-7 items-center justify-center rounded-full bg-zinc-900 text-xs font-semibold uppercase text-white">
-                {userName?.charAt(0)}
+                {displayName?.charAt(0)}
               </span>
               <span className="max-w-[140px] truncate text-sm font-medium">
-                {userName}
+                {displayName}
               </span>
-            </div>
+            </button>
           )}
           {showLogout && (
             <Button
@@ -73,6 +83,14 @@ export function AppHeader({
           )}
         </div>
       </div>
+      {user && (
+        <ProfileModal
+          user={user}
+          open={profileOpen}
+          onOpenChange={setProfileOpen}
+          onUpdated={onUserUpdate}
+        />
+      )}
     </header>
   );
 }

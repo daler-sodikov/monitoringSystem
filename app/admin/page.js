@@ -113,7 +113,8 @@ export default function AdminDashboard() {
       <AppHeader
         title="Панели администратор"
         subtitle={`Хуш омадед, ${user?.name}`}
-        userName={user?.name}
+        user={user}
+        onUserUpdate={setUser}
       />
 
       <main className="mx-auto w-full max-w-[1200px] px-4 py-10 md:px-6">

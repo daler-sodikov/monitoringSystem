@@ -108,7 +108,8 @@ export default function TeacherDashboard() {
       <AppHeader
         title="Панели омӯзгор"
         subtitle={`Хуш омадед, ${user?.name}`}
-        userName={user?.name}
+        user={user}
+        onUserUpdate={setUser}
       />
 
       <main className="mx-auto w-full max-w-[1200px] px-4 py-10 md:px-6">

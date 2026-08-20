@@ -16,6 +16,7 @@ import {
   Info,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { sanitizeHtml } from '@/lib/rich-text';
 
 function StatusRail({ answer }) {
   const color = !answer
@@ -267,7 +268,10 @@ export default function StudentResultDetail() {
                     </div>
                   </div>
 
-                  <p className="mt-2 text-base font-medium leading-snug">{q.text}</p>
+                  <div
+                    className="mt-2 max-w-none text-base font-medium leading-snug [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-300 [&_blockquote]:pl-3 [&_code]:rounded [&_code]:bg-zinc-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_hr]:my-3 [&_hr]:border-zinc-200"
+                    dangerouslySetInnerHTML={{ __html: sanitizeHtml(q.text) }}
+                  />
 
                   {/* MULTIPLE CHOICE */}
                   {q.type === 'MULTIPLE_CHOICE' && (

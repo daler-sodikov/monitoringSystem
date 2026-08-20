@@ -90,7 +90,7 @@ export default function RoomResults() {
       <AppHeader
         title={room.name}
         subtitle={room.test?.title}
-        backHref={`/teacher/rooms/${roomId}`}
+        backHref={`/teacher`}
       />
 
       <main className="mx-auto w-full max-w-[1200px] px-4 py-10 md:px-6">

@@ -154,6 +154,49 @@ async function handleMe() {
   return Response.json({ user });
 }
 
+async function handleUpdateProfile(request) {
+  const user = await getCurrentUser();
+  if (!user) {
+    return Response.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  try {
+    const { name, email, password } = await request.json();
+
+    if (!name || !email) {
+      return Response.json({ error: 'Name and email are required' }, { status: 400 });
+    }
+
+    const db = await getDb();
+
+    const existingUser = await db.collection('users').findOne({
+      email,
+      _id: { $ne: user._id }
+    });
+    if (existingUser) {
+      return Response.json({ error: 'Email is already in use' }, { status: 400 });
+    }
+
+    const update = { name, email };
+    if (password) {
+      update.password = await hashPassword(password);
+    }
+
+    await db.collection('users').updateOne(
+      { _id: user._id },
+      { $set: update }
+    );
+
+    return Response.json({
+      success: true,
+      user: { _id: user._id, name, email, role: user.role }
+    });
+  } catch (error) {
+    console.error('Update profile error:', error);
+    return Response.json({ error: 'Internal server error' }, { status: 500 });
+  }
+}
+
 // ============================================
 // TEST ROUTES (TEACHER ONLY)
 // ============================================
@@ -1289,6 +1332,7 @@ export async function PUT(request, { params }) {
   const endpoint = '/' + path.join('/');
 
   try {
+    if (endpoint === '/auth/profile') return handleUpdateProfile(request);
     if (endpoint.match(/^\/tests\/[a-f0-9]{24}$/)) {
       const testId = path[1];
       return handleUpdateTest(request, testId);

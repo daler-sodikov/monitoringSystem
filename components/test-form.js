@@ -27,7 +27,9 @@ import {
   FileDown,
 } from "lucide-react";
 import { AppHeader } from "@/components/app-header";
+import { RichTextEditor } from "@/components/rich-text-editor";
 import { parsePartialJson } from "@/lib/partial-json";
+import { stripHtml } from "@/lib/rich-text";
 import { toast } from "sonner";
 import {
   Dialog,
@@ -542,7 +544,7 @@ export function TestForm({
           new Paragraph({
             children: [
               new TextRun({
-                text: `${qi + 1}. ${question.text} (${question.points} балл)`,
+                text: `${qi + 1}. ${stripHtml(question.text)} (${question.points} балл)`,
                 bold: true,
               }),
             ],
@@ -603,7 +605,7 @@ export function TestForm({
       y += 4;
       addLines(variant.name, { fontSize: 13 });
       variant.questions.forEach((question, qi) => {
-        addLines(`${qi + 1}. ${question.text} (${question.points} балл)`, {
+        addLines(`${qi + 1}. ${stripHtml(question.text)} (${question.points} балл)`, {
           fontSize: 11,
         });
         questionAnswerLines(question).forEach((line) => {
@@ -1018,18 +1020,17 @@ export function TestForm({
                                 <div className="flex-1 space-y-3">
                                   <div>
                                     <Label>Савол {questionIndex + 1}</Label>
-                                    <Textarea
+                                    <RichTextEditor
                                       value={question.text}
-                                      onChange={(e) =>
+                                      onChange={(html) =>
                                         updateQuestion(
                                           variantIndex,
                                           questionIndex,
                                           "text",
-                                          e.target.value,
+                                          html,
                                         )
                                       }
                                       placeholder="Матни саволро ворид кунед"
-                                      rows={2}
                                     />
                                   </div>
 

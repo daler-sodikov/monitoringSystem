@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge';
 import { AppHeader } from '@/components/app-header';
 import { EmptyState } from '@/components/empty-state';
 import { LoadingScreen } from '@/components/loading-screen';
+import { sanitizeHtml } from '@/lib/rich-text';
 import { toast } from 'sonner';
 import {
   ArrowRight,
@@ -386,7 +387,10 @@ export default function RoomAccess() {
                 </span>
               </div>
 
-              <p className="mt-3 text-base font-medium leading-snug">{question.text}</p>
+              <div
+                className="mt-3 max-w-none text-base font-medium leading-snug [&_p]:my-1 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_h2]:text-lg [&_h2]:font-semibold [&_h3]:text-base [&_h3]:font-semibold [&_blockquote]:border-l-2 [&_blockquote]:border-zinc-300 [&_blockquote]:pl-3 [&_code]:rounded [&_code]:bg-zinc-100 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em] [&_hr]:my-3 [&_hr]:border-zinc-200"
+                dangerouslySetInnerHTML={{ __html: sanitizeHtml(question.text) }}
+              />
 
               <div className="mt-5">
                 {question.type === 'MULTIPLE_CHOICE' && (
